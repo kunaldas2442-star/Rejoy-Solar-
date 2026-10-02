@@ -3,6 +3,7 @@ import { useApp } from '../../context/AppContext';
 import { useAuth } from '../../context/AuthContext';
 import { storageService } from '../../services/storage';
 import { Employee, AttendanceRecord, Payslip, HolidayRecord } from '../../types/solar';
+import { attendanceBelongsToEmployee } from '../../utils/employeeMatching';
 import { getCurrentGPSPosition } from '../../services/gps';
 import { EmployeeModal } from '../hrms/EmployeeModal';
 import { AttendanceModal } from '../hrms/AttendanceModal';
@@ -126,7 +127,7 @@ export const HrmsView: React.FC = () => {
       );
       // Count attendance days present
       const daysPresent = attendance.filter(
-        a => a.employeeId === emp.id && a.status !== 'ABSENT'
+        a => attendanceBelongsToEmployee(a, emp) && a.status !== 'ABSENT'
       ).length;
 
       return {

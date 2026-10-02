@@ -41,8 +41,9 @@ export function numberToIndianWords(amount: number): string {
     return 'Zero Rupees Only';
   }
 
-  const rounded = Math.round(Math.abs(amount));
-  let num = rounded;
+  const absAmount = Math.abs(amount);
+  let num = Math.floor(absAmount);
+  const paise = Math.round((absAmount - num) * 100);
 
   const crore = Math.floor(num / 10000000);
   num %= 10000000;
@@ -70,8 +71,15 @@ export function numberToIndianWords(amount: number): string {
     parts.push(convertThreeDigits(remainder));
   }
 
-  const words = parts.join(' ').trim();
-  return (amount < 0 ? 'Minus ' : '') + words + ' Rupees Only';
+  let words = parts.join(' ').trim();
+  if (!words) words = 'Zero';
+
+  let result = (amount < 0 ? 'Minus ' : '') + words + ' Rupees';
+  if (paise > 0) {
+    result += ' and ' + convertTwoDigits(paise) + ' Paise';
+  }
+  result += ' Only';
+  return result;
 }
 
 function numberToIndianWordsInternal(num: number): string {

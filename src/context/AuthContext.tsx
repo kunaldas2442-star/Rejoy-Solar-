@@ -131,11 +131,18 @@ export interface DemoAccount {
   badgeColor: string;
 }
 
+/**
+ * Default password for all local/development/demo accounts.
+ * WARNING: This credential is strictly for local development and demonstration environments.
+ * It must NEVER be used in production environments.
+ */
+export const DEMO_DEFAULT_PASSWORD = '123456';
+
 export const DEMO_ACCOUNTS: DemoAccount[] = ROLE_DEFINITIONS.map((r, idx) => ({
   name: `${r.role} Demo`,
   email: `${r.role.toLowerCase().replace(/[^a-z0-9]/g, '')}@rejoysolar.com`,
   role: r.role,
-  password: 'Password@123',
+  password: DEMO_DEFAULT_PASSWORD,
   department: r.department,
   isFieldWorker: Boolean(r.isFieldWorkerDefault),
   profile: {
@@ -254,16 +261,21 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         }
       }
 
-      // Validate demo account credentials if matching demo account
-      if (demoAccount && demoAccount.password !== cleanPass && !linkedEmp) {
-        throw new Error('Invalid email or password. Please verify your credentials.');
-      }
-
       // Check bootstrapped owner/admin accounts
       const isBootstrappedAdmin =
         cleanEmail === 'admin@rejoysolar.com' ||
         cleanEmail === 'dasest404@gmail.com' ||
         cleanEmail === 'kunaldas2442@gmail.com';
+
+      // Validate account existence
+      if (!linkedEmp && !demoAccount && !isBootstrappedAdmin && !cleanEmail.includes('customer')) {
+        throw new Error('Account not found with this email address. Please contact an administrator.');
+      }
+
+      // In this development/demo environment, every available user—including Admin—uses DEMO_DEFAULT_PASSWORD ('123456')
+      if (cleanPass !== DEMO_DEFAULT_PASSWORD && cleanPass !== 'Password@123') {
+        throw new Error('Invalid email or password. Please verify your credentials.');
+      }
 
       // Construct profile for authenticated user
       const defaultRole: UserRole = isBootstrappedAdmin

@@ -3,6 +3,7 @@ import { useAuth } from '../../context/AuthContext';
 import { useApp } from '../../context/AppContext';
 import { storageService } from '../../services/storage';
 import { AttendanceRecord, DailyFuelExpense } from '../../types/solar';
+import { attendanceBelongsToEmployee, findEmployeeForUser } from '../../utils/employeeMatching';
 import {
   Play,
   Square,
@@ -109,6 +110,15 @@ export const TodayAttendanceCard: React.FC<TodayAttendanceCardProps> = ({
     });
   }, []);
 
+  // Fetch employee directory & resolve current user to their HR employee record
+  const employees = useMemo(() => {
+    return storageService.getEmployees();
+  }, [refreshTrigger]);
+
+  const matchedEmployee = useMemo(() => {
+    return findEmployeeForUser(currentUser, employees);
+  }, [currentUser, employees]);
+
   // Fetch today's record for this user from storage
   const attendanceList = useMemo(() => {
     return storageService.getAttendance();
@@ -117,10 +127,14 @@ export const TodayAttendanceCard: React.FC<TodayAttendanceCardProps> = ({
   const todayRecord = useMemo(() => {
     const userId = currentUser?.id;
     const userName = currentUser?.name;
-    return attendanceList.find(
-      a => (a.employeeId === userId || a.employeeName === userName) && a.date === todayStr
-    ) || null;
-  }, [attendanceList, currentUser, todayStr]);
+    return attendanceList.find(a => {
+      if (a.date !== todayStr) return false;
+      if (matchedEmployee && attendanceBelongsToEmployee(a, matchedEmployee)) return true;
+      if (userId && (a.employeeId === userId || a.authUid === userId)) return true;
+      if (userName && a.employeeName.trim().toLowerCase() === userName.trim().toLowerCase()) return true;
+      return false;
+    }) || null;
+  }, [attendanceList, matchedEmployee, currentUser, todayStr]);
 
   // Derived state:
   // 1. 'NOT_STARTED': no check-in today
@@ -241,8 +255,19 @@ export const TodayAttendanceCard: React.FC<TodayAttendanceCardProps> = ({
       updatedAt: new Date().toISOString()
     };
 
+    const canonicalEmpId = matchedEmployee?.id || todayRecord.employeeId || currentUser?.id || 'emp-user';
+    const canonicalEmpName = matchedEmployee?.name || todayRecord.employeeName || currentUser?.name || 'Solar Team Member';
+    const canonicalEmpCode = matchedEmployee?.employeeCode || todayRecord.employeeCode || currentUser?.employeeId;
+    const canonicalEmpEmail = matchedEmployee?.email || todayRecord.employeeEmail || currentUser?.email;
+    const authUid = todayRecord.authUid || currentUser?.id;
+
     const updated: AttendanceRecord = {
       ...todayRecord,
+      employeeId: canonicalEmpId,
+      employeeName: canonicalEmpName,
+      authUid,
+      employeeCode: canonicalEmpCode,
+      employeeEmail: canonicalEmpEmail,
       fuelExpense
     };
 
@@ -353,10 +378,18 @@ export const TodayAttendanceCard: React.FC<TodayAttendanceCardProps> = ({
         submittedAt: new Date().toISOString()
       } : undefined;
 
+      const canonicalEmpId = matchedEmployee?.id || currentUser?.id || 'emp-user';
+      const canonicalEmpName = matchedEmployee?.name || currentUser?.name || 'Solar Team Member';
+      const canonicalEmpCode = matchedEmployee?.employeeCode || currentUser?.employeeId;
+      const canonicalEmpEmail = matchedEmployee?.email || currentUser?.email;
+
       const newRecord: AttendanceRecord = {
         id: `att-${Date.now()}`,
-        employeeId: currentUser?.id || 'emp-user',
-        employeeName: currentUser?.name || 'Solar Team Member',
+        employeeId: canonicalEmpId,
+        employeeName: canonicalEmpName,
+        authUid: currentUser?.id,
+        employeeCode: canonicalEmpCode,
+        employeeEmail: canonicalEmpEmail,
         date: todayStr,
         checkInTime: timeStr,
         checkInGps: `${gpsCoords.latitude}, ${gpsCoords.longitude}`,
@@ -438,8 +471,19 @@ export const TodayAttendanceCard: React.FC<TodayAttendanceCardProps> = ({
         updatedAt: new Date().toISOString()
       } : todayRecord.fuelExpense;
 
+      const canonicalEmpId = matchedEmployee?.id || todayRecord.employeeId || currentUser?.id || 'emp-user';
+      const canonicalEmpName = matchedEmployee?.name || todayRecord.employeeName || currentUser?.name || 'Solar Team Member';
+      const canonicalEmpCode = matchedEmployee?.employeeCode || todayRecord.employeeCode || currentUser?.employeeId;
+      const canonicalEmpEmail = matchedEmployee?.email || todayRecord.employeeEmail || currentUser?.email;
+      const authUid = todayRecord.authUid || currentUser?.id;
+
       const updatedRecord: AttendanceRecord = {
         ...todayRecord,
+        employeeId: canonicalEmpId,
+        employeeName: canonicalEmpName,
+        authUid,
+        employeeCode: canonicalEmpCode,
+        employeeEmail: canonicalEmpEmail,
         checkOutTime: timeStr,
         checkOutGps: `${gpsCoords.latitude}, ${gpsCoords.longitude}`,
         gpsCheckOut: {

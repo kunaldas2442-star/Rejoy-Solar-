@@ -29,7 +29,7 @@ import {
 } from 'lucide-react';
 import { validateEmployee, DuplicateRecordError } from '../../services/validation';
 import { provisionEmployeeAccount, updateEmployeeAccount } from '../../services/adminAuthService';
-import { useAuth } from '../../context/AuthContext';
+import { useAuth, DEMO_DEFAULT_PASSWORD } from '../../context/AuthContext';
 
 interface EmployeeModalProps {
   isOpen: boolean;
@@ -101,12 +101,7 @@ function getDefaultSystemRole(dept: string, desig: string): UserRole {
 }
 
 function generateSecurePassword(): string {
-  const chars = 'ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnpqrstuvwxyz23456789!@#$%&*';
-  let pass = 'Sol@r';
-  for (let i = 0; i < 6; i++) {
-    pass += chars.charAt(Math.floor(Math.random() * chars.length));
-  }
-  return pass;
+  return DEMO_DEFAULT_PASSWORD;
 }
 
 const DOCUMENT_CATEGORIES: EmployeeDocumentCategory[] = [
@@ -308,9 +303,14 @@ export const EmployeeModal: React.FC<EmployeeModalProps> = ({
       setDocuments([]);
     }
 
-    // Always clear passwords when modal opens or target changes
-    setPassword('');
-    setConfirmPassword('');
+    // Set default demo password for new employee or clear for edit
+    if (!employeeToEdit) {
+      setPassword(DEMO_DEFAULT_PASSWORD);
+      setConfirmPassword(DEMO_DEFAULT_PASSWORD);
+    } else {
+      setPassword('');
+      setConfirmPassword('');
+    }
     setShowPassword(false);
     setShowConfirmPassword(false);
     setPasswordGeneratedTip(null);

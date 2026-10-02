@@ -1,5 +1,6 @@
 import React, { useMemo } from 'react';
 import { AttendanceRecord, Employee } from '../../types/solar';
+import { attendanceBelongsToEmployee } from '../../utils/employeeMatching';
 import { ReportFilterState, ReportCategoryMeta } from '../../types/reports';
 import { exportToCSV } from '../../services/exportImport';
 import { ReportFilterBar } from './ReportFilterBar';
@@ -48,7 +49,7 @@ export const MonthlyAttendanceReport: React.FC<MonthlyAttendanceReportProps> = (
 
   const filteredAttendance = useMemo(() => {
     return attendance.filter(rec => {
-      const emp = employeeMap.get(rec.employeeId);
+      const emp = employeeMap.get(rec.employeeId) || employees.find(e => attendanceBelongsToEmployee(rec, e));
 
       // Date filter
       if (filters.fromDate && rec.date < filters.fromDate) return false;

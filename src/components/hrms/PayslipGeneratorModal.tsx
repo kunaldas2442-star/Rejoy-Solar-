@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useMemo, useRef } from 'react';
 import { Employee, Payslip, AdditionalExpenseItem, DeductionItem } from '../../types/solar';
 import { storageService } from '../../services/storage';
+import { attendanceBelongsToEmployee } from '../../utils/employeeMatching';
 import {
   X,
   FileText,
@@ -33,6 +34,18 @@ interface PayslipGeneratorModalProps {
   employee: Employee | null;
   existingPayslip?: Payslip | null;
   allEmployees: Employee[];
+}
+
+interface EditableExpenseItem {
+  id: string;
+  description: string;
+  amount: number | string;
+}
+
+interface EditableDeductionItem {
+  id: string;
+  description: string;
+  amount: number | string;
 }
 
 const COMMON_EXPENSE_PRESETS = [
@@ -72,6 +85,10 @@ export const PayslipGeneratorModal: React.FC<PayslipGeneratorModalProps> = ({
 }) => {
   const isEditing = Boolean(existingPayslip);
 
+  // Settings
+  const settings = storageService.getSettings();
+  const currencySymbol = settings.currencySymbol || '₹';
+
   // Selected employee state (in case user opened modal directly)
   const [selectedEmployeeId, setSelectedEmployeeId] = useState<string>(
     initialEmployee?.id || existingPayslip?.employeeId || allEmployees[0]?.id || ''
@@ -88,21 +105,21 @@ export const PayslipGeneratorModal: React.FC<PayslipGeneratorModalProps> = ({
   const [bankReferenceNo, setBankReferenceNo] = useState<string>('');
   const [notes, setNotes] = useState<string>('');
 
-  // Overtime states
+  // Overtime states (store as number | string to allow fluid decimal typing)
   const [overtimeType, setOvertimeType] = useState<'CALCULATED' | 'DIRECT'>('CALCULATED');
-  const [overtimeHours, setOvertimeHours] = useState<number>(0);
-  const [overtimeRatePerHour, setOvertimeRatePerHour] = useState<number>(0);
+  const [overtimeHours, setOvertimeHours] = useState<number | string>(0);
+  const [overtimeRatePerHour, setOvertimeRatePerHour] = useState<number | string>(0);
   const [isOvertimeRateManuallyEdited, setIsOvertimeRateManuallyEdited] = useState<boolean>(false);
-  const [directOvertimeAmount, setDirectOvertimeAmount] = useState<number>(0);
+  const [directOvertimeAmount, setDirectOvertimeAmount] = useState<number | string>(0);
 
   // Additional expenses
-  const [additionalExpenses, setAdditionalExpenses] = useState<AdditionalExpenseItem[]>([]);
+  const [additionalExpenses, setAdditionalExpenses] = useState<EditableExpenseItem[]>([]);
 
   // Deductions
-  const [deductions, setDeductions] = useState<DeductionItem[]>([]);
+  const [deductions, setDeductions] = useState<EditableDeductionItem[]>([]);
 
   // Daily Fuel / Mileage Sync state
-  const [reimbursementRatePerKm, setReimbursementRatePerKm] = useState<number>(5.0);
+  const [reimbursementRatePerKm, setReimbursementRatePerKm] = useState<number | string>(5.0);
   const [isViewingFuelBreakdown, setIsViewingFuelBreakdown] = useState<boolean>(false);
   const [fuelPreviewModalImg, setFuelPreviewModalImg] = useState<{ url: string; title: string } | null>(null);
 
@@ -140,7 +157,7 @@ export const PayslipGeneratorModal: React.FC<PayslipGeneratorModalProps> = ({
 
     const allAttendance = storageService.getAttendance();
     return allAttendance.filter(a => {
-      const isEmp = a.employeeId === currentEmployee.id || a.employeeName === currentEmployee.name;
+      const isEmp = attendanceBelongsToEmployee(a, currentEmployee);
       const isMonth = prefix ? a.date.startsWith(prefix) : true;
       return isEmp && isMonth;
     });
@@ -165,7 +182,6 @@ export const PayslipGeneratorModal: React.FC<PayslipGeneratorModalProps> = ({
   }, [currentEmployee]);
 
   // Handle employee change in create mode: update selected employee and suggested overtime rate (if not manually edited)
-  // while preserving user entered non-employee-specific form data (month, payment mode, expenses, deductions, notes).
   const handleEmployeeChange = (newEmpId: string) => {
     setSelectedEmployeeId(newEmpId);
 
@@ -216,13 +232,13 @@ export const PayslipGeneratorModal: React.FC<PayslipGeneratorModalProps> = ({
 
         setAdditionalExpenses(
           existingPayslip.additionalExpenses && existingPayslip.additionalExpenses.length > 0
-            ? [...existingPayslip.additionalExpenses]
+            ? existingPayslip.additionalExpenses.map(item => ({ ...item }))
             : []
         );
 
         setDeductions(
           existingPayslip.deductions && existingPayslip.deductions.length > 0
-            ? [...existingPayslip.deductions]
+            ? existingPayslip.deductions.map(item => ({ ...item }))
             : []
         );
       } else {
@@ -254,30 +270,45 @@ export const PayslipGeneratorModal: React.FC<PayslipGeneratorModalProps> = ({
     }
   }, [isOpen, existingPayslip, initialEmployee, allEmployees]);
 
-  // Real-time calculations:
-  // Base salary is FIXED and strictly read from currentEmployee.salaryMonthly
+  // Real-time calculations with support for exact float / decimal values
   const fixedBaseSalary = currentEmployee ? currentEmployee.salaryMonthly : 0;
+
+  const numOvertimeHours = parseFloat(String(overtimeHours)) || 0;
+  const numOvertimeRate = parseFloat(String(overtimeRatePerHour)) || 0;
+  const numDirectOvertime = parseFloat(String(directOvertimeAmount)) || 0;
 
   const effectiveOvertimeSalary =
     overtimeType === 'CALCULATED'
-      ? Math.round((Number(overtimeHours) || 0) * (Number(overtimeRatePerHour) || 0))
-      : Math.round(Number(directOvertimeAmount) || 0);
+      ? Math.round(numOvertimeHours * numOvertimeRate * 100) / 100
+      : Math.round(numDirectOvertime * 100) / 100;
 
-  const totalAdditionalExpenses = additionalExpenses.reduce(
-    (sum, item) => sum + (Number(item.amount) || 0),
-    0
-  );
+  const totalAdditionalExpenses = Math.round(
+    additionalExpenses.reduce(
+      (sum, item) => sum + (parseFloat(String(item.amount)) || 0),
+      0
+    ) * 100
+  ) / 100;
 
-  const totalDeductions = deductions.reduce(
-    (sum, item) => sum + (Number(item.amount) || 0),
-    0
-  );
+  const totalDeductions = Math.round(
+    deductions.reduce(
+      (sum, item) => sum + (parseFloat(String(item.amount)) || 0),
+      0
+    ) * 100
+  ) / 100;
 
   // Transparent calculation rules:
   // Gross Earnings = Fixed Base Salary + Overtime Salary + Total Additional Expenses
   // Net Pay = Gross Earnings - Total Deductions
-  const grossEarnings = fixedBaseSalary + effectiveOvertimeSalary + totalAdditionalExpenses;
-  const netPay = Math.max(0, grossEarnings - totalDeductions);
+  const grossEarnings = Math.round((fixedBaseSalary + effectiveOvertimeSalary + totalAdditionalExpenses) * 100) / 100;
+  const netPay = Math.max(0, Math.round((grossEarnings - totalDeductions) * 100) / 100);
+
+  const formatCurrency = (val: number | undefined | null) => {
+    if (val === undefined || val === null || isNaN(val)) return '0';
+    return val.toLocaleString('en-IN', {
+      minimumFractionDigits: val % 1 === 0 ? 0 : 2,
+      maximumFractionDigits: 2
+    });
+  };
 
   if (!isOpen || !currentEmployee) return null;
 
@@ -288,7 +319,7 @@ export const PayslipGeneratorModal: React.FC<PayslipGeneratorModalProps> = ({
       {
         id: `exp-${Date.now()}-${Math.random().toString(36).substr(2, 4)}`,
         description: presetDesc || '',
-        amount: 0
+        amount: ''
       }
     ]);
   };
@@ -306,8 +337,9 @@ export const PayslipGeneratorModal: React.FC<PayslipGeneratorModalProps> = ({
   const handleSyncFuelReimbursement = () => {
     if (totalFuelKmInMonth <= 0) return;
 
-    const desc = `Daily Fuel & Mileage Reimbursement (${totalFuelKmInMonth} km @ ₹${reimbursementRatePerKm}/km)`;
-    const amount = Math.round(totalFuelKmInMonth * reimbursementRatePerKm);
+    const rateNum = parseFloat(String(reimbursementRatePerKm)) || 0;
+    const amount = Math.round(totalFuelKmInMonth * rateNum * 100) / 100;
+    const desc = `Daily Fuel & Mileage Reimbursement (${totalFuelKmInMonth} km @ ${currencySymbol}${rateNum}/km)`;
 
     setAdditionalExpenses(prev => {
       const existingIndex = prev.findIndex(item =>
@@ -343,7 +375,7 @@ export const PayslipGeneratorModal: React.FC<PayslipGeneratorModalProps> = ({
       {
         id: `ded-${Date.now()}-${Math.random().toString(36).substr(2, 4)}`,
         description: presetDesc || '',
-        amount: 0
+        amount: ''
       }
     ]);
   };
@@ -366,19 +398,20 @@ export const PayslipGeneratorModal: React.FC<PayslipGeneratorModalProps> = ({
     }
 
     if (overtimeType === 'CALCULATED') {
-      if (overtimeHours < 0) newErrors.overtimeHours = 'Overtime hours cannot be negative.';
-      if (overtimeRatePerHour < 0) newErrors.overtimeRatePerHour = 'Overtime rate cannot be negative.';
+      if (numOvertimeHours < 0) newErrors.overtimeHours = 'Overtime hours cannot be negative.';
+      if (numOvertimeRate < 0) newErrors.overtimeRatePerHour = 'Overtime rate cannot be negative.';
     } else {
-      if (directOvertimeAmount < 0) newErrors.directOvertimeAmount = 'Overtime amount cannot be negative.';
+      if (numDirectOvertime < 0) newErrors.directOvertimeAmount = 'Overtime amount cannot be negative.';
     }
 
     // Check that any added expense item has a description
     for (const exp of additionalExpenses) {
-      if (!exp.description.trim() && exp.amount > 0) {
+      const amt = parseFloat(String(exp.amount)) || 0;
+      if (!exp.description.trim() && amt > 0) {
         newErrors.expenses = 'All additional expense line items must have a description.';
         break;
       }
-      if (exp.amount < 0) {
+      if (amt < 0) {
         newErrors.expenses = 'Expense amounts must be positive numbers.';
         break;
       }
@@ -386,11 +419,12 @@ export const PayslipGeneratorModal: React.FC<PayslipGeneratorModalProps> = ({
 
     // Check that any added deduction has a description
     for (const ded of deductions) {
-      if (!ded.description.trim() && ded.amount > 0) {
+      const amt = parseFloat(String(ded.amount)) || 0;
+      if (!ded.description.trim() && amt > 0) {
         newErrors.deductions = 'All deduction line items must have a description.';
         break;
       }
-      if (ded.amount < 0) {
+      if (amt < 0) {
         newErrors.deductions = 'Deduction amounts must be positive numbers.';
         break;
       }
@@ -414,9 +448,22 @@ export const PayslipGeneratorModal: React.FC<PayslipGeneratorModalProps> = ({
         ? existingPayslip.payslipNumber
         : `PAY-${salaryMonth.replace(/\s+/g, '').toUpperCase()}-${currentEmployee.employeeCode}`;
 
-      // Filter out blank empty rows with zero amounts
-      const cleanExpenses = additionalExpenses.filter(e => e.description.trim().length > 0 && e.amount > 0);
-      const cleanDeductions = deductions.filter(d => d.description.trim().length > 0 && d.amount > 0);
+      // Filter out blank empty rows with zero amounts and preserve full float precision
+      const cleanExpenses: AdditionalExpenseItem[] = additionalExpenses
+        .filter(e => e.description.trim().length > 0 && (parseFloat(String(e.amount)) || 0) > 0)
+        .map(e => ({
+          id: e.id,
+          description: e.description.trim(),
+          amount: Math.round((parseFloat(String(e.amount)) || 0) * 100) / 100
+        }));
+
+      const cleanDeductions: DeductionItem[] = deductions
+        .filter(d => d.description.trim().length > 0 && (parseFloat(String(d.amount)) || 0) > 0)
+        .map(d => ({
+          id: d.id,
+          description: d.description.trim(),
+          amount: Math.round((parseFloat(String(d.amount)) || 0) * 100) / 100
+        }));
 
       const finalPayslip: Payslip = {
         id: payslipId,
@@ -434,8 +481,8 @@ export const PayslipGeneratorModal: React.FC<PayslipGeneratorModalProps> = ({
 
         // Variable overtime
         overtimeType,
-        overtimeHours: overtimeType === 'CALCULATED' ? Number(overtimeHours) : undefined,
-        overtimeRatePerHour: overtimeType === 'CALCULATED' ? Number(overtimeRatePerHour) : undefined,
+        overtimeHours: overtimeType === 'CALCULATED' ? numOvertimeHours : undefined,
+        overtimeRatePerHour: overtimeType === 'CALCULATED' ? numOvertimeRate : undefined,
         overtimeAmount: effectiveOvertimeSalary,
 
         // Additional expenses
@@ -607,7 +654,7 @@ export const PayslipGeneratorModal: React.FC<PayslipGeneratorModalProps> = ({
                   <p className="text-xs font-bold text-slate-800">{currentEmployee.designation}</p>
                 </div>
                 <div className="text-right">
-                  <span className="text-sm font-black text-slate-900">₹{fixedBaseSalary.toLocaleString('en-IN')}</span>
+                  <span className="text-sm font-black text-slate-900">{currencySymbol}{formatCurrency(fixedBaseSalary)}</span>
                   <p className="text-[10px] text-slate-400">Fixed Base</p>
                 </div>
               </div>
@@ -618,8 +665,8 @@ export const PayslipGeneratorModal: React.FC<PayslipGeneratorModalProps> = ({
                   <p className="text-[10px] text-slate-400">Calculated as Base / 26 days / 8 hrs</p>
                 </div>
                 <div className="text-right flex items-center gap-2">
-                  <span className="text-xs font-bold text-slate-700">₹{suggestedHourlyRate} / hr</span>
-                  {!isEditing && overtimeType === 'CALCULATED' && overtimeRatePerHour !== suggestedHourlyRate && (
+                  <span className="text-xs font-bold text-slate-700">{currencySymbol}{suggestedHourlyRate} / hr</span>
+                  {!isEditing && overtimeType === 'CALCULATED' && (parseFloat(String(overtimeRatePerHour)) || 0) !== suggestedHourlyRate && (
                     <button
                       type="button"
                       onClick={() => {
@@ -646,7 +693,7 @@ export const PayslipGeneratorModal: React.FC<PayslipGeneratorModalProps> = ({
                   <span>Variable Earnings — Overtime Amount</span>
                 </span>
                 <p className="text-[11px] text-slate-500">
-                  Choose between automated calculation (Hours × Rate) or direct manual overtime amount
+                  Choose between automated calculation (Hours × Rate) or direct manual overtime amount. All decimals and fractional hours are supported.
                 </p>
               </div>
 
@@ -687,26 +734,26 @@ export const PayslipGeneratorModal: React.FC<PayslipGeneratorModalProps> = ({
                   <input
                     type="number"
                     min="0"
-                    step="0.5"
+                    step="any"
                     value={overtimeHours}
-                    onChange={e => setOvertimeHours(parseFloat(e.target.value) || 0)}
-                    placeholder="e.g. 15"
+                    onChange={e => setOvertimeHours(e.target.value)}
+                    placeholder="e.g. 15.5"
                     className="w-full text-xs font-mono font-bold border border-slate-200 rounded-xl p-2.5 bg-white focus:ring-2 focus:ring-emerald-500"
                   />
                 </div>
 
                 <div>
                   <label className="block text-[11px] font-bold text-slate-700 mb-1">
-                    Hourly Overtime Rate (₹ / hr)
+                    Hourly Overtime Rate ({currencySymbol} / hr)
                   </label>
                   <input
                     type="number"
                     min="0"
-                    step="10"
+                    step="any"
                     value={overtimeRatePerHour}
                     onChange={e => {
                       setIsOvertimeRateManuallyEdited(true);
-                      setOvertimeRatePerHour(parseFloat(e.target.value) || 0);
+                      setOvertimeRatePerHour(e.target.value);
                     }}
                     placeholder={String(suggestedHourlyRate)}
                     className="w-full text-xs font-mono font-bold border border-slate-200 rounded-xl p-2.5 bg-white focus:ring-2 focus:ring-emerald-500"
@@ -716,10 +763,10 @@ export const PayslipGeneratorModal: React.FC<PayslipGeneratorModalProps> = ({
                 <div className="flex flex-col justify-center p-2.5 bg-white rounded-xl border border-emerald-200 text-right">
                   <span className="text-[10px] font-bold text-emerald-700 uppercase tracking-wider">Calculated Overtime Salary</span>
                   <span className="text-base font-black text-emerald-800">
-                    ₹{effectiveOvertimeSalary.toLocaleString('en-IN')}
+                    {currencySymbol}{formatCurrency(effectiveOvertimeSalary)}
                   </span>
                   <span className="text-[10px] text-slate-400">
-                    ({overtimeHours} hrs × ₹{overtimeRatePerHour})
+                    ({overtimeHours || 0} hrs × {currencySymbol}{overtimeRatePerHour || 0})
                   </span>
                 </div>
               </div>
@@ -727,14 +774,14 @@ export const PayslipGeneratorModal: React.FC<PayslipGeneratorModalProps> = ({
               <div className="p-3.5 bg-emerald-50/40 rounded-xl border border-emerald-100 flex flex-col sm:flex-row items-center justify-between gap-3">
                 <div className="w-full sm:w-1/2">
                   <label className="block text-[11px] font-bold text-slate-700 mb-1">
-                    Direct Overtime Amount (₹)
+                    Direct Overtime Amount ({currencySymbol})
                   </label>
                   <input
                     type="number"
                     min="0"
-                    step="100"
+                    step="any"
                     value={directOvertimeAmount}
-                    onChange={e => setDirectOvertimeAmount(parseFloat(e.target.value) || 0)}
+                    onChange={e => setDirectOvertimeAmount(e.target.value)}
                     placeholder="e.g. 5000"
                     className="w-full text-xs font-mono font-bold border border-slate-200 rounded-xl p-2.5 bg-white focus:ring-2 focus:ring-emerald-500"
                   />
@@ -743,7 +790,7 @@ export const PayslipGeneratorModal: React.FC<PayslipGeneratorModalProps> = ({
                 <div className="w-full sm:w-1/2 p-2.5 bg-white rounded-xl border border-emerald-200 text-right">
                   <span className="text-[10px] font-bold text-emerald-700 uppercase tracking-wider">Effective Overtime Salary</span>
                   <span className="text-base font-black text-emerald-800 block">
-                    ₹{effectiveOvertimeSalary.toLocaleString('en-IN')}
+                    {currencySymbol}{formatCurrency(effectiveOvertimeSalary)}
                   </span>
                 </div>
               </div>
@@ -759,7 +806,7 @@ export const PayslipGeneratorModal: React.FC<PayslipGeneratorModalProps> = ({
                   <span>Additional Expenses & Approved Reimbursements</span>
                 </span>
                 <p className="text-[11px] text-slate-500">
-                  Multiple line items with reason and amount (travel, site allowance, fuel, food, tools, incentive)
+                  Multiple line items with reason and amount (travel, site allowance, fuel, food, tools, incentive). Supports decimal amounts.
                 </p>
               </div>
 
@@ -811,7 +858,7 @@ export const PayslipGeneratorModal: React.FC<PayslipGeneratorModalProps> = ({
                     className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-bold text-white bg-amber-600 hover:bg-amber-700 disabled:opacity-50 disabled:pointer-events-none rounded-xl shadow-2xs transition-colors cursor-pointer"
                   >
                     <Plus className="w-3.5 h-3.5" />
-                    <span>Apply ₹{Math.round(totalFuelKmInMonth * reimbursementRatePerKm).toLocaleString('en-IN')} to Payslip</span>
+                    <span>Apply {currencySymbol}{formatCurrency(Math.round(totalFuelKmInMonth * (parseFloat(String(reimbursementRatePerKm)) || 0) * 100) / 100)} to Payslip</span>
                   </button>
                 </div>
               </div>
@@ -823,19 +870,19 @@ export const PayslipGeneratorModal: React.FC<PayslipGeneratorModalProps> = ({
                     Reimbursement Rate:
                   </label>
                   <div className="inline-flex items-center gap-1 bg-white px-2 py-1 rounded-lg border border-amber-300">
-                    <span className="font-semibold text-slate-500 text-[11px]">₹</span>
+                    <span className="font-semibold text-slate-500 text-[11px]">{currencySymbol}</span>
                     <input
                       type="number"
-                      step="0.5"
+                      step="any"
                       min="0"
                       value={reimbursementRatePerKm}
-                      onChange={e => setReimbursementRatePerKm(parseFloat(e.target.value) || 0)}
-                      className="w-14 text-xs font-mono font-bold text-slate-900 focus:outline-hidden"
+                      onChange={e => setReimbursementRatePerKm(e.target.value)}
+                      className="w-16 text-xs font-mono font-bold text-slate-900 focus:outline-hidden"
                     />
                     <span className="text-[10px] text-slate-400 font-semibold">/ km</span>
                   </div>
                   <span className="text-[11px] text-slate-500">
-                    ({totalFuelKmInMonth} km × ₹{reimbursementRatePerKm} = <strong className="text-amber-900 font-bold">₹{Math.round(totalFuelKmInMonth * reimbursementRatePerKm).toLocaleString('en-IN')}</strong>)
+                    ({totalFuelKmInMonth} km × {currencySymbol}{reimbursementRatePerKm || 0} = <strong className="text-amber-900 font-bold">{currencySymbol}{formatCurrency(Math.round(totalFuelKmInMonth * (parseFloat(String(reimbursementRatePerKm)) || 0) * 100) / 100)}</strong>)
                   </span>
                 </div>
 
@@ -864,7 +911,7 @@ export const PayslipGeneratorModal: React.FC<PayslipGeneratorModalProps> = ({
                     <tbody className="divide-y divide-amber-100/60">
                       {fuelAttendanceRecords.map(rec => {
                         const km = rec.fuelExpense?.totalKmDriven || 0;
-                        const dayCost = Math.round(km * reimbursementRatePerKm);
+                        const dayCost = Math.round(km * (parseFloat(String(reimbursementRatePerKm)) || 0) * 100) / 100;
                         return (
                           <tr key={rec.id} className="hover:bg-amber-100/30">
                             <td className="py-1.5 font-mono text-slate-700">{rec.date}</td>
@@ -885,7 +932,7 @@ export const PayslipGeneratorModal: React.FC<PayslipGeneratorModalProps> = ({
                               {km} km
                             </td>
                             <td className="py-1.5 font-mono font-bold text-slate-900 text-right">
-                              ₹{dayCost.toLocaleString('en-IN')}
+                              {currencySymbol}{formatCurrency(dayCost)}
                             </td>
                             <td className="py-1.5 text-center">
                               <div className="flex items-center justify-center gap-1.5">
@@ -976,13 +1023,13 @@ export const PayslipGeneratorModal: React.FC<PayslipGeneratorModalProps> = ({
                       className="flex-1 text-xs border border-slate-200 rounded-lg p-2 bg-white focus:ring-2 focus:ring-sky-500"
                     />
                     <div className="relative w-36">
-                      <span className="absolute left-2.5 top-2 text-xs font-bold text-slate-400">₹</span>
+                      <span className="absolute left-2.5 top-2 text-xs font-bold text-slate-400">{currencySymbol}</span>
                       <input
                         type="number"
                         min="0"
-                        step="50"
-                        value={item.amount || ''}
-                        onChange={e => handleUpdateExpense(item.id, 'amount', parseFloat(e.target.value) || 0)}
+                        step="any"
+                        value={item.amount}
+                        onChange={e => handleUpdateExpense(item.id, 'amount', e.target.value)}
                         placeholder="0"
                         className="w-full text-xs font-mono font-bold pl-6 pr-2.5 py-2 border border-slate-200 rounded-lg bg-white focus:ring-2 focus:ring-sky-500 text-right"
                       />
@@ -1001,7 +1048,7 @@ export const PayslipGeneratorModal: React.FC<PayslipGeneratorModalProps> = ({
                 <div className="flex items-center justify-between p-2.5 bg-sky-50/50 rounded-xl border border-sky-100 text-xs">
                   <span className="font-bold text-sky-900">Total Additional Expenses:</span>
                   <span className="font-black text-sky-900 text-sm">
-                    ₹{totalAdditionalExpenses.toLocaleString('en-IN')}
+                    {currencySymbol}{formatCurrency(totalAdditionalExpenses)}
                   </span>
                 </div>
               </div>
@@ -1017,7 +1064,7 @@ export const PayslipGeneratorModal: React.FC<PayslipGeneratorModalProps> = ({
                   <span>Deductions (Statutory & Adjustments)</span>
                 </span>
                 <p className="text-[11px] text-slate-500">
-                  Optional multiple deduction items (PF/ESI, TDS tax, advance recovery, unpaid leave, loan recovery)
+                  Optional multiple deduction items (PF/ESI, TDS tax, advance recovery, unpaid leave, loan recovery). Supports decimal amounts.
                 </p>
               </div>
 
@@ -1078,13 +1125,13 @@ export const PayslipGeneratorModal: React.FC<PayslipGeneratorModalProps> = ({
                       className="flex-1 text-xs border border-slate-200 rounded-lg p-2 bg-white focus:ring-2 focus:ring-rose-500"
                     />
                     <div className="relative w-36">
-                      <span className="absolute left-2.5 top-2 text-xs font-bold text-slate-400">₹</span>
+                      <span className="absolute left-2.5 top-2 text-xs font-bold text-slate-400">{currencySymbol}</span>
                       <input
                         type="number"
                         min="0"
-                        step="50"
-                        value={item.amount || ''}
-                        onChange={e => handleUpdateDeduction(item.id, 'amount', parseFloat(e.target.value) || 0)}
+                        step="any"
+                        value={item.amount}
+                        onChange={e => handleUpdateDeduction(item.id, 'amount', e.target.value)}
                         placeholder="0"
                         className="w-full text-xs font-mono font-bold pl-6 pr-2.5 py-2 border border-slate-200 rounded-lg bg-white focus:ring-2 focus:ring-rose-500 text-right"
                       />
@@ -1103,7 +1150,7 @@ export const PayslipGeneratorModal: React.FC<PayslipGeneratorModalProps> = ({
                 <div className="flex items-center justify-between p-2.5 bg-rose-50/50 rounded-xl border border-rose-100 text-xs">
                   <span className="font-bold text-rose-900">Total Deductions:</span>
                   <span className="font-black text-rose-900 text-sm">
-                    -₹{totalDeductions.toLocaleString('en-IN')}
+                    -{currencySymbol}{formatCurrency(totalDeductions)}
                   </span>
                 </div>
               </div>
@@ -1128,27 +1175,27 @@ export const PayslipGeneratorModal: React.FC<PayslipGeneratorModalProps> = ({
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3 text-xs">
               <div className="bg-white/5 border border-white/10 rounded-xl p-3">
                 <span className="text-[10px] uppercase font-bold text-slate-400 block mb-0.5">Fixed Base Salary</span>
-                <span className="text-base font-bold text-white">₹{fixedBaseSalary.toLocaleString('en-IN')}</span>
+                <span className="text-base font-bold text-white">{currencySymbol}{formatCurrency(fixedBaseSalary)}</span>
                 <span className="text-[10px] text-emerald-400 block mt-0.5">Master Fixed</span>
               </div>
 
               <div className="bg-white/5 border border-white/10 rounded-xl p-3">
                 <span className="text-[10px] uppercase font-bold text-slate-400 block mb-0.5">Overtime Earnings</span>
-                <span className="text-base font-bold text-emerald-400">+₹{effectiveOvertimeSalary.toLocaleString('en-IN')}</span>
+                <span className="text-base font-bold text-emerald-400">+{currencySymbol}{formatCurrency(effectiveOvertimeSalary)}</span>
                 <span className="text-[10px] text-slate-400 block mt-0.5">
-                  {overtimeType === 'CALCULATED' ? `${overtimeHours} hrs @ ₹${overtimeRatePerHour}/hr` : 'Direct input'}
+                  {overtimeType === 'CALCULATED' ? `${overtimeHours || 0} hrs @ ${currencySymbol}${overtimeRatePerHour || 0}/hr` : 'Direct input'}
                 </span>
               </div>
 
               <div className="bg-white/5 border border-white/10 rounded-xl p-3">
                 <span className="text-[10px] uppercase font-bold text-slate-400 block mb-0.5">Additional Expenses</span>
-                <span className="text-base font-bold text-sky-400">+₹{totalAdditionalExpenses.toLocaleString('en-IN')}</span>
+                <span className="text-base font-bold text-sky-400">+{currencySymbol}{formatCurrency(totalAdditionalExpenses)}</span>
                 <span className="text-[10px] text-slate-400 block mt-0.5">{additionalExpenses.length} approved item(s)</span>
               </div>
 
               <div className="bg-white/5 border border-white/10 rounded-xl p-3">
                 <span className="text-[10px] uppercase font-bold text-slate-400 block mb-0.5">Total Deductions</span>
-                <span className="text-base font-bold text-rose-400">-₹{totalDeductions.toLocaleString('en-IN')}</span>
+                <span className="text-base font-bold text-rose-400">-{currencySymbol}{formatCurrency(totalDeductions)}</span>
                 <span className="text-[10px] text-slate-400 block mt-0.5">{deductions.length} deduction(s)</span>
               </div>
             </div>
@@ -1157,10 +1204,10 @@ export const PayslipGeneratorModal: React.FC<PayslipGeneratorModalProps> = ({
             <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pt-3 border-t border-slate-700/60 bg-black/20 -mx-4 -mb-4 p-4 rounded-b-2xl">
               <div>
                 <span className="text-[11px] text-slate-300 block">
-                  Gross Earnings = Base (₹{fixedBaseSalary.toLocaleString('en-IN')}) + Overtime (₹{effectiveOvertimeSalary.toLocaleString('en-IN')}) + Expenses (₹{totalAdditionalExpenses.toLocaleString('en-IN')})
+                  Gross Earnings = Base ({currencySymbol}{formatCurrency(fixedBaseSalary)}) + Overtime ({currencySymbol}{formatCurrency(effectiveOvertimeSalary)}) + Expenses ({currencySymbol}{formatCurrency(totalAdditionalExpenses)})
                 </span>
                 <span className="text-xs font-bold text-amber-200">
-                  Gross Earnings: ₹{grossEarnings.toLocaleString('en-IN')}
+                  Gross Earnings: {currencySymbol}{formatCurrency(grossEarnings)}
                 </span>
               </div>
 
@@ -1169,7 +1216,7 @@ export const PayslipGeneratorModal: React.FC<PayslipGeneratorModalProps> = ({
                   Net Pay Payable (Gross - Deductions)
                 </span>
                 <span className="text-2xl font-black text-emerald-400 tracking-tight">
-                  ₹{netPay.toLocaleString('en-IN')}
+                  {currencySymbol}{formatCurrency(netPay)}
                 </span>
               </div>
             </div>

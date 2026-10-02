@@ -1,54 +1,23 @@
 import React from 'react';
 import { Payslip } from '../../types/solar';
-import { X, Printer, Download, CheckCircle2, ShieldCheck, Sun, Building2, Calendar, CreditCard, Hash, UserCheck } from 'lucide-react';
+import { storageService } from '../../services/storage';
+import { numberToIndianWords } from '../../utils/indianNumberWords';
+import {
+  X,
+  Printer,
+  Building2,
+  Calendar,
+  CreditCard,
+  Hash,
+  UserCheck,
+  CheckCircle2
+} from 'lucide-react';
 
 interface PayslipViewModalProps {
   isOpen: boolean;
   onClose: () => void;
   payslip: Payslip | null;
   onEdit?: (payslip: Payslip) => void;
-}
-
-// Convert numbers to Indian currency words
-function numberToIndianWords(num: number): string {
-  if (!num || isNaN(num)) return 'Zero';
-  const a = [
-    '', 'One ', 'Two ', 'Three ', 'Four ', 'Five ', 'Six ', 'Seven ', 'Eight ', 'Nine ', 'Ten ',
-    'Eleven ', 'Twelve ', 'Thirteen ', 'Fourteen ', 'Fifteen ', 'Sixteen ', 'Seventeen ', 'Eighteen ', 'Nineteen '
-  ];
-  const b = ['', '', 'Twenty', 'Thirty', 'Forty', 'Fifty', 'Sixty', 'Seventy', 'Eighty', 'Ninety'];
-
-  const inWords = (n: number): string => {
-    let str = '';
-    if (n > 99) {
-      str += a[Math.floor(n / 100)] + 'Hundred ';
-      n %= 100;
-    }
-    if (n > 19) {
-      str += b[Math.floor(n / 10)] + ' ' + a[n % 10];
-    } else if (n > 0) {
-      str += a[n];
-    }
-    return str;
-  };
-
-  let n = Math.floor(num);
-  let str = '';
-
-  const crore = Math.floor(n / 10000000);
-  n %= 10000000;
-  const lakh = Math.floor(n / 100000);
-  n %= 100000;
-  const thousand = Math.floor(n / 1000);
-  n %= 1000;
-  const hundred = n;
-
-  if (crore > 0) str += inWords(crore) + 'Crore ';
-  if (lakh > 0) str += inWords(lakh) + 'Lakh ';
-  if (thousand > 0) str += inWords(thousand) + 'Thousand ';
-  if (hundred > 0) str += inWords(hundred);
-
-  return str.trim() + ' Rupees Only';
 }
 
 export const PayslipViewModal: React.FC<PayslipViewModalProps> = ({
@@ -58,6 +27,23 @@ export const PayslipViewModal: React.FC<PayslipViewModalProps> = ({
   onEdit
 }) => {
   if (!isOpen || !payslip) return null;
+
+  const settings = storageService.getSettings();
+  const companyName = settings.companyName || 'Rejoy Solar Power Pvt. Ltd.';
+  const companyAddress = settings.companyAddress || 'Plot 14-A, GIDC Industrial Estate, Sanand, Ahmedabad, Gujarat 382110';
+  const companyPhone = settings.companyPhone || '+91 79 4001 8800';
+  const companyEmail = settings.companyEmail || 'payroll@rejoysolar.com';
+  const companyGst = settings.companyGst || '24AAECS9921D1Z8';
+  const logoUrl = settings.logoUrl || '/logo-dark.png';
+  const currencySymbol = settings.currencySymbol || '₹';
+
+  const formatAmount = (val: number | undefined | null) => {
+    if (val === undefined || val === null || isNaN(val)) return '0';
+    return val.toLocaleString('en-IN', {
+      minimumFractionDigits: val % 1 === 0 ? 0 : 2,
+      maximumFractionDigits: 2
+    });
+  };
 
   const handlePrint = () => {
     window.print();
@@ -122,33 +108,49 @@ export const PayslipViewModal: React.FC<PayslipViewModalProps> = ({
 
         {/* Printable Payslip Body */}
         <div className="p-8 sm:p-10 space-y-6 overflow-y-auto flex-1 bg-white text-slate-900 print:p-6 print:overflow-visible">
-          {/* Company Branding Header */}
+          {/* Dynamic Company Branding Header */}
           <div className="flex flex-col sm:flex-row sm:items-center justify-between pb-6 border-b-2 border-slate-900 gap-4">
-            <div className="flex items-center gap-3">
-              <div className="w-12 h-12 rounded-xl bg-amber-500 text-slate-950 flex items-center justify-center font-black shadow-sm">
-                <Sun className="w-7 h-7" />
+            <div className="flex items-center gap-4">
+              <div className="flex items-center justify-center shrink-0">
+                <img
+                  src={logoUrl}
+                  alt={companyName}
+                  className="h-12 sm:h-14 w-auto max-h-14 max-w-[200px] object-contain"
+                  onError={e => {
+                    const img = e.currentTarget;
+                    if (img.src !== window.location.origin + '/logo-dark.png' && !img.src.endsWith('/logo-dark.png')) {
+                      img.src = '/logo-dark.png';
+                    }
+                  }}
+                />
               </div>
               <div>
-                <h1 className="text-xl font-black tracking-tight text-slate-950">
-                  SOLARPULSE EPC SOLUTIONS PVT. LTD.
+                <h1 className="text-xl font-black tracking-tight text-slate-950 uppercase">
+                  {companyName}
                 </h1>
                 <p className="text-xs text-slate-600 font-medium">
                   Leading Solar Rooftop & Industrial Utility EPC Contractors
                 </p>
-                <p className="text-[11px] text-slate-500">
-                  Plot 14-A, GIDC Industrial Estate, Sanand, Ahmedabad, Gujarat 382110
+                <p className="text-[11px] text-slate-500 max-w-md">
+                  {companyAddress}
                 </p>
               </div>
             </div>
 
             <div className="text-left sm:text-right text-xs text-slate-600 space-y-0.5">
-              <p className="font-mono text-slate-700">
-                <strong>GSTIN:</strong> 24AABCS1429B1Z8
-              </p>
-              <p className="font-mono text-slate-700">
-                <strong>CIN:</strong> U40106GJ2020PTC112345
-              </p>
-              <p className="text-slate-500">hr.payroll@solarpulse.com</p>
+              {companyGst && (
+                <p className="font-mono text-slate-700">
+                  <strong>GSTIN:</strong> {companyGst}
+                </p>
+              )}
+              {companyPhone && (
+                <p className="text-slate-600">
+                  <strong>Tel:</strong> {companyPhone}
+                </p>
+              )}
+              {companyEmail && (
+                <p className="text-slate-500">{companyEmail}</p>
+              )}
             </div>
           </div>
 
@@ -219,7 +221,7 @@ export const PayslipViewModal: React.FC<PayslipViewModalProps> = ({
                   <span className="text-xs font-bold text-slate-800 uppercase tracking-wider">
                     Earnings (Fixed & Variable)
                   </span>
-                  <span className="text-xs font-bold text-slate-800">Amount (₹)</span>
+                  <span className="text-xs font-bold text-slate-800">Amount ({currencySymbol})</span>
                 </div>
 
                 <div className="divide-y divide-slate-100 text-xs">
@@ -229,7 +231,7 @@ export const PayslipViewModal: React.FC<PayslipViewModalProps> = ({
                       <span className="font-bold text-slate-900">Basic Monthly Salary</span>
                       <span className="text-[10px] text-slate-500 block">Fixed Base Rate</span>
                     </div>
-                    <span className="font-bold text-slate-900">₹{payslip.baseSalary.toLocaleString('en-IN')}</span>
+                    <span className="font-bold text-slate-900">{currencySymbol}{formatAmount(payslip.baseSalary)}</span>
                   </div>
 
                   {/* Overtime */}
@@ -238,12 +240,12 @@ export const PayslipViewModal: React.FC<PayslipViewModalProps> = ({
                       <span className="font-semibold text-slate-800">Overtime Salary</span>
                       <span className="text-[10px] text-slate-500 block">
                         {payslip.overtimeType === 'CALCULATED'
-                          ? `${payslip.overtimeHours ?? 0} hrs @ ₹${payslip.overtimeRatePerHour ?? 0}/hr`
+                          ? `${payslip.overtimeHours ?? 0} hrs @ ${currencySymbol}${formatAmount(payslip.overtimeRatePerHour)}/hr`
                           : 'Direct Overtime'}
                       </span>
                     </div>
                     <span className="font-semibold text-emerald-700">
-                      ₹{payslip.overtimeAmount.toLocaleString('en-IN')}
+                      {currencySymbol}{formatAmount(payslip.overtimeAmount)}
                     </span>
                   </div>
 
@@ -255,7 +257,7 @@ export const PayslipViewModal: React.FC<PayslipViewModalProps> = ({
                           <span className="text-slate-800">{exp.description}</span>
                           <span className="text-[10px] text-sky-600 block">Approved Reimbursement</span>
                         </div>
-                        <span className="font-medium text-slate-800">₹{exp.amount.toLocaleString('en-IN')}</span>
+                        <span className="font-medium text-slate-800">{currencySymbol}{formatAmount(exp.amount)}</span>
                       </div>
                     ))
                   ) : (
@@ -270,7 +272,7 @@ export const PayslipViewModal: React.FC<PayslipViewModalProps> = ({
               <div className="bg-slate-50 px-4 py-3 border-t border-slate-200 flex justify-between items-center text-xs">
                 <span className="font-bold text-slate-900 uppercase">Gross Earnings</span>
                 <span className="text-sm font-black text-slate-950">
-                  ₹{payslip.grossEarnings.toLocaleString('en-IN')}
+                  {currencySymbol}{formatAmount(payslip.grossEarnings)}
                 </span>
               </div>
             </div>
@@ -282,7 +284,7 @@ export const PayslipViewModal: React.FC<PayslipViewModalProps> = ({
                   <span className="text-xs font-bold text-slate-800 uppercase tracking-wider">
                     Deductions (Statutory & Adjustments)
                   </span>
-                  <span className="text-xs font-bold text-slate-800">Amount (₹)</span>
+                  <span className="text-xs font-bold text-slate-800">Amount ({currencySymbol})</span>
                 </div>
 
                 <div className="divide-y divide-slate-100 text-xs">
@@ -293,7 +295,7 @@ export const PayslipViewModal: React.FC<PayslipViewModalProps> = ({
                           <span className="text-slate-800">{ded.description}</span>
                           <span className="text-[10px] text-rose-600 block">Payroll Deduction</span>
                         </div>
-                        <span className="font-medium text-rose-700">₹{ded.amount.toLocaleString('en-IN')}</span>
+                        <span className="font-medium text-rose-700">{currencySymbol}{formatAmount(ded.amount)}</span>
                       </div>
                     ))
                   ) : (
@@ -308,7 +310,7 @@ export const PayslipViewModal: React.FC<PayslipViewModalProps> = ({
               <div className="bg-slate-50 px-4 py-3 border-t border-slate-200 flex justify-between items-center text-xs">
                 <span className="font-bold text-slate-900 uppercase">Total Deductions</span>
                 <span className="text-sm font-black text-rose-700">
-                  -₹{payslip.totalDeductions.toLocaleString('en-IN')}
+                  -{currencySymbol}{formatAmount(payslip.totalDeductions)}
                 </span>
               </div>
             </div>
@@ -328,7 +330,7 @@ export const PayslipViewModal: React.FC<PayslipViewModalProps> = ({
             <div className="text-left sm:text-right">
               <span className="text-xs text-slate-400 uppercase font-bold block">Net Pay</span>
               <span className="text-2xl sm:text-3xl font-black text-emerald-400 tracking-tight">
-                ₹{payslip.netPay.toLocaleString('en-IN')}
+                {currencySymbol}{formatAmount(payslip.netPay)}
               </span>
             </div>
           </div>
@@ -361,7 +363,7 @@ export const PayslipViewModal: React.FC<PayslipViewModalProps> = ({
           </div>
 
           <p className="text-[10px] text-center text-slate-400 pt-4 print:pt-6">
-            This is an authentic system-generated computer payroll voucher from SolarPulse ERP. All calculations adhere to company payroll policy and Indian labor statutory norms.
+            This is an authentic system-generated computer payroll voucher from {companyName}. All calculations adhere to company payroll policy and Indian labor statutory norms.
           </p>
         </div>
       </div>

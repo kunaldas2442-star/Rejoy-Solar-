@@ -213,6 +213,7 @@ const initialAclAuditLogs: AclAuditLogEntry[] = [
 const initialEmployees: Employee[] = [
   {
     id: 'emp-1',
+    authUid: 'demo-usr-1',
     employeeCode: 'EMP001',
     name: 'Vikram Patel',
     photoUrl: 'https://images.unsplash.com/photo-1534528741775-53994a69daeb?auto=format&fit=crop&q=80&w=150',
@@ -232,6 +233,7 @@ const initialEmployees: Employee[] = [
   },
   {
     id: 'emp-2',
+    authUid: 'demo-usr-4',
     employeeCode: 'EMP002',
     name: 'Amit Sharma',
     photoUrl: 'https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?auto=format&fit=crop&q=80&w=150',
@@ -251,6 +253,7 @@ const initialEmployees: Employee[] = [
   },
   {
     id: 'emp-3',
+    authUid: 'demo-usr-5',
     employeeCode: 'EMP003',
     name: 'Rajesh Kumar',
     photoUrl: 'https://images.unsplash.com/photo-1500648767791-00dcc994a43e?auto=format&fit=crop&q=80&w=150',
@@ -271,6 +274,7 @@ const initialEmployees: Employee[] = [
   },
   {
     id: 'emp-4',
+    authUid: 'demo-usr-2',
     employeeCode: 'EMP004',
     name: 'Priya Verma',
     photoUrl: 'https://images.unsplash.com/photo-1573496359142-b8d87734a5a2?auto=format&fit=crop&q=80&w=150',
@@ -290,6 +294,7 @@ const initialEmployees: Employee[] = [
   },
   {
     id: 'emp-5',
+    authUid: 'demo-usr-3',
     employeeCode: 'EMP005',
     name: 'Rahul Mehta',
     photoUrl: 'https://images.unsplash.com/photo-1519085360753-af0119f7cbe7?auto=format&fit=crop&q=80&w=150',
@@ -309,6 +314,7 @@ const initialEmployees: Employee[] = [
   },
   {
     id: 'emp-6',
+    authUid: 'demo-usr-8',
     employeeCode: 'EMP006',
     name: 'Dinesh Yadav',
     photoUrl: 'https://images.unsplash.com/photo-1472099645785-5658abf4ff4e?auto=format&fit=crop&q=80&w=150',
@@ -328,6 +334,7 @@ const initialEmployees: Employee[] = [
   },
   {
     id: 'emp-7',
+    authUid: 'demo-usr-9',
     employeeCode: 'EMP007',
     name: 'Manoj Tiwari',
     photoUrl: 'https://images.unsplash.com/photo-1522075469751-3a6694fb2f61?auto=format&fit=crop&q=80&w=150',
@@ -347,6 +354,7 @@ const initialEmployees: Employee[] = [
   },
   {
     id: 'emp-8',
+    authUid: 'demo-usr-10',
     employeeCode: 'EMP008',
     name: 'Ankit Joshi',
     photoUrl: 'https://images.unsplash.com/photo-1506794778202-cad84cf45f1d?auto=format&fit=crop&q=80&w=150',
@@ -366,6 +374,7 @@ const initialEmployees: Employee[] = [
   },
   {
     id: 'emp-9',
+    authUid: 'demo-usr-11',
     employeeCode: 'EMP009',
     name: 'Sneha Kulkarni',
     photoUrl: 'https://images.unsplash.com/photo-1580489944761-15a19d654956?auto=format&fit=crop&q=80&w=150',
@@ -385,6 +394,7 @@ const initialEmployees: Employee[] = [
   },
   {
     id: 'emp-10',
+    authUid: 'demo-usr-14',
     employeeCode: 'EMP010',
     name: 'Neha Gupta',
     photoUrl: 'https://images.unsplash.com/photo-1544005313-94ddf0286df2?auto=format&fit=crop&q=80&w=150',
@@ -404,6 +414,7 @@ const initialEmployees: Employee[] = [
   },
   {
     id: 'emp-11',
+    authUid: 'demo-usr-12',
     employeeCode: 'EMP011',
     name: 'Rohit Verma',
     photoUrl: 'https://images.unsplash.com/photo-1560250097-0b93528c311a?auto=format&fit=crop&q=80&w=150',
@@ -423,6 +434,7 @@ const initialEmployees: Employee[] = [
   },
   {
     id: 'emp-12',
+    authUid: 'demo-usr-13',
     employeeCode: 'EMP012',
     name: 'Ketan Solanki',
     photoUrl: 'https://images.unsplash.com/photo-1500648767791-00dcc994a43e?auto=format&fit=crop&q=80&w=150',
@@ -442,6 +454,7 @@ const initialEmployees: Employee[] = [
   },
   {
     id: 'emp-13',
+    authUid: 'demo-usr-6',
     employeeCode: 'EMP013',
     name: 'Hardik Shah',
     photoUrl: 'https://images.unsplash.com/photo-1519085360753-af0119f7cbe7?auto=format&fit=crop&q=80&w=150',
@@ -461,6 +474,7 @@ const initialEmployees: Employee[] = [
   },
   {
     id: 'emp-14',
+    authUid: 'demo-usr-7',
     employeeCode: 'EMP014',
     name: 'Suresh Patel',
     photoUrl: 'https://images.unsplash.com/photo-1506794778202-cad84cf45f1d?auto=format&fit=crop&q=80&w=150',
@@ -1337,6 +1351,9 @@ const initialAttendance: AttendanceRecord[] = [
   {
     id: 'att-1',
     employeeId: 'emp-3',
+    authUid: 'demo-usr-5',
+    employeeCode: 'EMP003',
+    employeeEmail: 'survey@rejoysolar.com',
     employeeName: 'Rajesh Kumar',
     date: '2026-09-07',
     checkInTime: '09:05 AM',
@@ -1362,6 +1379,9 @@ const initialAttendance: AttendanceRecord[] = [
   {
     id: 'att-2',
     employeeId: 'emp-7',
+    authUid: 'demo-usr-9',
+    employeeCode: 'EMP007',
+    employeeEmail: 'installation@rejoysolar.com',
     employeeName: 'Manoj Tiwari',
     date: '2026-09-07',
     checkInTime: '08:50 AM',
@@ -1387,6 +1407,9 @@ const initialAttendance: AttendanceRecord[] = [
   {
     id: 'att-3',
     employeeId: 'emp-2',
+    authUid: 'demo-usr-4',
+    employeeCode: 'EMP002',
+    employeeEmail: 'projectmanager@rejoysolar.com',
     employeeName: 'Amit Sharma',
     date: '2026-09-07',
     checkInTime: '09:15 AM',
@@ -1395,6 +1418,9 @@ const initialAttendance: AttendanceRecord[] = [
   {
     id: 'att-4',
     employeeId: 'emp-9',
+    authUid: 'demo-usr-11',
+    employeeCode: 'EMP009',
+    employeeEmail: 'accountant@rejoysolar.com',
     employeeName: 'Sneha Kulkarni',
     date: '2026-09-07',
     checkInTime: '09:30 AM',
@@ -1403,6 +1429,9 @@ const initialAttendance: AttendanceRecord[] = [
   {
     id: 'att-5',
     employeeId: 'emp-4',
+    authUid: 'demo-usr-2',
+    employeeCode: 'EMP004',
+    employeeEmail: 'salesmanager@rejoysolar.com',
     employeeName: 'Priya Verma',
     date: '2026-09-07',
     checkInTime: '09:10 AM',
@@ -1820,15 +1849,16 @@ const initialNotifications: AppNotification[] = [
 ];
 
 const initialSettings: SystemSettings = {
-  companyName: 'SolarPulse EPC & Energy Solutions',
+  companyName: 'Rejoy Solar Power Pvt. Ltd.',
   companyAddress: '401-404, Solitaire Heights, SG Highway, Ahmedabad, Gujarat 380054',
   companyPhone: '+91 79 4001 8800',
-  companyEmail: 'epc@solarpulse.com',
+  companyEmail: 'info@rejoysolar.com',
   companyGst: '24AAECS9921D1Z8',
+  logoUrl: '/logo-dark.png',
   currencySymbol: '₹',
   taxRatePercent: 18,
   tallyServerUrl: (typeof import.meta !== 'undefined' && import.meta.env && import.meta.env.VITE_TALLY_SERVER_URL) ? import.meta.env.VITE_TALLY_SERVER_URL : '',
-  tallyCompany: 'SolarPulse EPC 2026-27',
+  tallyCompany: 'Rejoy Solar 2026-27',
   tallyStatus: 'NOT CONFIGURED',
   whatsAppStatus: 'SANDBOX_READY'
 };
@@ -3709,11 +3739,31 @@ class StorageService {
   // --- Employees & HRMS ---
   getEmployees(): Employee[] {
     const list = this.get<Employee[]>(STORAGE_KEYS.EMPLOYEES, initialEmployees);
+    const DEFAULT_AUTH_MAP: Record<string, string> = {
+      'emp-1': 'demo-usr-1',
+      'emp-2': 'demo-usr-4',
+      'emp-3': 'demo-usr-5',
+      'emp-4': 'demo-usr-2',
+      'emp-5': 'demo-usr-3',
+      'emp-6': 'demo-usr-8',
+      'emp-7': 'demo-usr-9',
+      'emp-8': 'demo-usr-10',
+      'emp-9': 'demo-usr-11',
+      'emp-10': 'demo-usr-14',
+      'emp-11': 'demo-usr-12',
+      'emp-12': 'demo-usr-13',
+      'emp-13': 'demo-usr-6',
+      'emp-14': 'demo-usr-7'
+    };
+
     return list.map(emp => {
-      if (typeof emp.loginEnabled !== 'boolean') {
+      const defaultAuthUid = DEFAULT_AUTH_MAP[emp.id];
+      const authUid = emp.authUid || defaultAuthUid;
+      if (typeof emp.loginEnabled !== 'boolean' || (!emp.authUid && authUid)) {
         return {
           ...emp,
-          loginEnabled: true,
+          authUid,
+          loginEnabled: typeof emp.loginEnabled === 'boolean' ? emp.loginEnabled : true,
           systemRole: emp.systemRole || emp.assignedRole || 'Project Manager',
           accountStatus: (emp.status === 'TERMINATED' ? 'DISABLED' : 'ACTIVE') as Employee['accountStatus']
         };
@@ -4005,7 +4055,11 @@ class StorageService {
 
   // --- Settings ---
   getSettings(): SystemSettings {
-    return this.get<SystemSettings>(STORAGE_KEYS.SETTINGS, initialSettings);
+    const settings = this.get<SystemSettings>(STORAGE_KEYS.SETTINGS, initialSettings);
+    if (!settings.logoUrl) {
+      settings.logoUrl = initialSettings.logoUrl || '/logo-dark.png';
+    }
+    return settings;
   }
 
   saveSettings(settings: SystemSettings): void {

@@ -196,6 +196,53 @@ export const SettingsView: React.FC = () => {
                   />
                 </div>
               </div>
+
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+                <div>
+                  <label className="block text-xs font-bold text-slate-700 mb-1">Official Company Email</label>
+                  <input
+                    type="email"
+                    value={form.companyEmail || ''}
+                    onChange={e => setForm({ ...form, companyEmail: e.target.value })}
+                    placeholder="epc@solarpulse.com"
+                    className="w-full text-xs border border-slate-200 rounded-xl p-2.5"
+                  />
+                </div>
+                <div>
+                  <label className="block text-xs font-bold text-slate-700 mb-1">Currency Symbol</label>
+                  <input
+                    type="text"
+                    value={form.currencySymbol || '₹'}
+                    onChange={e => setForm({ ...form, currencySymbol: e.target.value })}
+                    placeholder="₹"
+                    className="w-full text-xs border border-slate-200 rounded-xl p-2.5 font-mono"
+                  />
+                </div>
+                <div>
+                  <label className="block text-xs font-bold text-slate-700 mb-1">Company Logo URL</label>
+                  <div className="flex items-center gap-2">
+                    <input
+                      type="text"
+                      value={form.logoUrl || ''}
+                      onChange={e => setForm({ ...form, logoUrl: e.target.value })}
+                      placeholder="/logo-dark.png or https://..."
+                      className="w-full text-xs border border-slate-200 rounded-xl p-2.5"
+                    />
+                    {form.logoUrl && (
+                      <div className="w-9 h-9 rounded-lg border border-slate-200 bg-white p-1 flex items-center justify-center shrink-0 overflow-hidden">
+                        <img
+                          src={form.logoUrl}
+                          alt="Logo Preview"
+                          className="max-h-full max-w-full object-contain"
+                          onError={e => {
+                            (e.target as HTMLElement).style.display = 'none';
+                          }}
+                        />
+                      </div>
+                    )}
+                  </div>
+                </div>
+              </div>
             </div>
           )}
 

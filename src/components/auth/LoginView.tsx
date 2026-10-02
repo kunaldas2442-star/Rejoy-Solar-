@@ -112,16 +112,32 @@ export const LoginView: React.FC = () => {
       <div className="w-full max-w-md relative z-10">
         {/* Brand Header */}
         <div className="text-center mb-6">
-          <div className="inline-flex items-center justify-center w-14 h-14 rounded-2xl bg-gradient-to-tr from-amber-500 to-amber-400 text-slate-950 shadow-xl shadow-amber-500/20 mb-3.5">
-            <Sun className="w-8 h-8" />
+          <div className="flex justify-center mb-3.5">
+            <img
+              src="/logo-dark.png"
+              alt="Rejoy Solar Power Pvt. Ltd."
+              className="h-16 w-auto object-contain drop-shadow-md"
+              onError={(e) => {
+                (e.target as HTMLElement).style.display = 'none';
+                const fallback = document.getElementById('login-brand-fallback');
+                if (fallback) fallback.style.display = 'inline-flex';
+              }}
+            />
+            <div
+              id="login-brand-fallback"
+              style={{ display: 'none' }}
+              className="items-center justify-center w-14 h-14 rounded-2xl bg-gradient-to-tr from-amber-500 to-amber-400 text-slate-950 shadow-xl shadow-amber-500/20"
+            >
+              <Sun className="w-8 h-8" />
+            </div>
           </div>
-          <h1 className="text-2xl sm:text-3xl font-black text-white tracking-tight uppercase">
-            REJOY SOLAR
+          <h1 className="text-xl sm:text-2xl font-black text-white tracking-tight">
+            Rejoy Solar Power Pvt. Ltd.
           </h1>
-          <p className="text-xs sm:text-sm text-amber-400/90 font-semibold tracking-wide mt-0.5">
+          <p className="text-xs sm:text-sm text-amber-400 font-semibold tracking-wide mt-0.5">
             Solar ERP & CRM Platform
           </p>
-          <p className="text-xs text-slate-400 mt-1.5 font-medium">
+          <p className="text-xs text-slate-400 mt-1 font-medium">
             Sign in to your account
           </p>
         </div>
@@ -265,7 +281,7 @@ export const LoginView: React.FC = () => {
           {showDevAccounts && (
             <div className="mt-3.5 pt-3 border-t border-slate-800 space-y-2 animate-in fade-in">
               <p className="text-[11px] text-slate-400">
-                Click any role below to instantly log in and preview its tailored operational dashboard:
+                Click any role below to instantly log in and preview its tailored operational dashboard (Default password: <strong className="text-amber-400 font-mono">123456</strong>):
               </p>
 
               <div className="grid grid-cols-2 sm:grid-cols-3 gap-2 pt-1 max-h-60 overflow-y-auto pr-1">

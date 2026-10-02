@@ -1,7 +1,6 @@
 import React, { useState } from 'react';
-import { useAuth, ROLE_DEFINITIONS } from '../../context/AuthContext';
+import { useAuth } from '../../context/AuthContext';
 import { useApp } from '../../context/AppContext';
-import { UserRole } from '../../types/solar';
 import {
   Search,
   Bell,
@@ -11,10 +10,7 @@ import {
   Sparkles,
   Layers,
   ArrowRight,
-  LogOut,
-  User,
-  ShieldCheck,
-  Settings
+  LogOut
 } from 'lucide-react';
 
 interface HeaderProps {
@@ -22,7 +18,7 @@ interface HeaderProps {
 }
 
 export const Header: React.FC<HeaderProps> = ({ onToggleMobileMenu }) => {
-  const { currentUser, logout, updateRole, isAdmin } = useAuth();
+  const { currentUser, logout } = useAuth();
   const {
     setIsSearchOpen,
     notifications,
@@ -184,11 +180,11 @@ export const Header: React.FC<HeaderProps> = ({ onToggleMobileMenu }) => {
           </button>
 
           {showUserMenu && (
-            <div className="absolute right-0 mt-2 w-80 sm:w-96 bg-white rounded-2xl shadow-2xl border border-slate-200 py-3 z-50 animate-in fade-in zoom-in-95">
+            <div className="absolute right-0 mt-2 w-72 sm:w-80 bg-white rounded-2xl shadow-2xl border border-slate-200 py-3 z-50 animate-in fade-in zoom-in-95">
               {/* Authenticated User Header Card */}
               <div className="px-4 pb-3 border-b border-slate-100">
                 <div className="flex items-center gap-3">
-                  <div className="w-10 h-10 rounded-xl bg-gradient-to-tr from-amber-500 to-amber-400 text-white font-black flex items-center justify-center text-sm shadow-xs">
+                  <div className="w-10 h-10 rounded-xl bg-gradient-to-tr from-amber-500 to-amber-400 text-slate-950 font-black flex items-center justify-center text-sm shadow-xs">
                     {currentUser.name.charAt(0).toUpperCase()}
                   </div>
                   <div className="flex-1 min-w-0">
@@ -198,84 +194,18 @@ export const Header: React.FC<HeaderProps> = ({ onToggleMobileMenu }) => {
                       <span className="text-[10px] bg-amber-50 text-amber-800 border border-amber-200 px-2 py-0.5 rounded-md font-bold">
                         {currentUser.role}
                       </span>
-                      <span className="text-[10px] text-slate-400 font-medium">
-                        {currentUser.department}
-                      </span>
+                      {currentUser.department && (
+                        <span className="text-[10px] text-slate-400 font-medium truncate">
+                          {currentUser.department}
+                        </span>
+                      )}
                     </div>
                   </div>
                 </div>
               </div>
 
-              {/* Operational Role Switcher / Simulator */}
-              <div className="px-4 py-2.5 bg-slate-50/70 border-b border-slate-100 flex items-center justify-between">
-                <div className="flex items-center gap-1.5">
-                  <ShieldCheck className="w-4 h-4 text-purple-600" />
-                  <span className="text-[11px] font-bold text-slate-800 uppercase tracking-wider">Active Role Simulation</span>
-                </div>
-                <span className="text-[10px] bg-slate-200 text-slate-700 px-2 py-0.5 rounded-md font-semibold">
-                  RBAC Preview
-                </span>
-              </div>
-
-              <div className="max-h-60 overflow-y-auto p-2 space-y-1">
-                {ROLE_DEFINITIONS.map((item) => {
-                  const isSelected = currentUser.role === item.role;
-                  return (
-                    <div
-                      key={item.role}
-                      onClick={() => {
-                        updateRole(item.role);
-                        setShowUserMenu(false);
-                      }}
-                      className={`p-2 rounded-xl cursor-pointer transition-all flex items-start justify-between gap-2 ${
-                        isSelected ? 'bg-amber-50 border border-amber-200 shadow-2xs' : 'hover:bg-slate-50'
-                      }`}
-                    >
-                      <div>
-                        <div className="flex items-center gap-2">
-                          <span className="text-xs font-bold text-slate-900">{item.role}</span>
-                          <span className={`text-[10px] px-1.5 py-0.2 rounded-md font-semibold border ${item.badgeColor}`}>
-                            {item.department}
-                          </span>
-                        </div>
-                        <p className="text-[10px] text-slate-500 mt-0.5 leading-snug">{item.description}</p>
-                      </div>
-                      {isSelected && (
-                        <div className="w-2 h-2 rounded-full bg-amber-500 shrink-0 mt-1.5" />
-                      )}
-                    </div>
-                  );
-                })}
-              </div>
-
-              {/* Actions & Sign Out */}
-              <div className="pt-2 px-2 border-t border-slate-100 space-y-1">
-                {isAdmin && (
-                  <>
-                    <button
-                      onClick={() => {
-                        setActiveView('users');
-                        setShowUserMenu(false);
-                      }}
-                      className="w-full flex items-center gap-2.5 px-3 py-2 text-xs font-semibold text-slate-700 hover:bg-slate-100 rounded-xl transition-all cursor-pointer"
-                    >
-                      <User className="w-4 h-4 text-slate-400" />
-                      <span>User Management</span>
-                    </button>
-
-                    <button
-                      onClick={() => {
-                        setActiveView('settings');
-                        setShowUserMenu(false);
-                      }}
-                      className="w-full flex items-center gap-2.5 px-3 py-2 text-xs font-semibold text-slate-700 hover:bg-slate-100 rounded-xl transition-all cursor-pointer"
-                    >
-                      <Settings className="w-4 h-4 text-slate-400" />
-                      <span>Account & System Settings</span>
-                    </button>
-                  </>
-                )}
-
+              {/* Sign Out Control */}
+              <div className="pt-2 px-2">
                 <button
                   onClick={async () => {
                     setShowUserMenu(false);
