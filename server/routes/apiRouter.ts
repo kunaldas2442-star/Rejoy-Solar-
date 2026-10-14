@@ -1,64 +1,27 @@
-import { Router, Request, Response } from 'express';
+import express from 'express';
+import type { Request, Response } from 'express';
 import fs from 'fs';
 import path from 'path';
-import { dbManager } from '../mysqlDatabase';
-import { storageService } from '../../src/services/storage';
-import { DEMO_ACCOUNTS } from '../../src/context/AuthContext';
+import { dbManager } from '../mysqlDatabase.ts';
 
-export const apiRouter = Router();
+export const apiRouter = express.Router();
 
 // Initialize DB Manager
 dbManager.init().catch(err => {
   console.warn('[DB Manager] Startup notice:', err);
 });
 
-// Seed in-memory fallback from storageService
+// Seed in-memory fallback from server/fallbackData.json
 try {
-  const demoUsers: any[] = DEMO_ACCOUNTS.map(a => ({
-    id: a.profile.id,
-    name: a.name,
-    email: a.email,
-    password: a.password || '123456',
-    role: a.role,
-    phone: a.profile.phone || '+91 98000 00000',
-    department: a.department,
-    designation: a.profile.designation,
-    employeeId: a.profile.employeeId,
-    isFieldWorker: Boolean(a.isFieldWorker)
-  }));
-  demoUsers.push({
-    id: 'usr-admin-master',
-    name: 'Vikram Patel',
-    email: 'admin@rejoysolar.com',
-    password: '123456',
-    role: 'Admin',
-    phone: '+91 98250 11223',
-    department: 'Administration',
-    designation: 'Managing Director',
-    employeeId: 'EMP001',
-    isFieldWorker: false
-  });
-  dbManager.setFallbackItems('users', demoUsers);
-  dbManager.setFallbackItems('customers', storageService.getCustomers());
-  dbManager.setFallbackItems('leads', storageService.getLeads());
-  dbManager.setFallbackItems('projects', storageService.getProjects());
-  dbManager.setFallbackItems('employees', storageService.getEmployees());
-  dbManager.setFallbackItems('payments', storageService.getPayments());
-  dbManager.setFallbackItems('expenses', storageService.getExpenses());
-  dbManager.setFallbackItems('attendance', storageService.getAttendance());
-  dbManager.setFallbackItems('payslips', storageService.getPayslips());
-  dbManager.setFallbackItems('holidays', storageService.getHolidays());
-  dbManager.setFallbackItems('service_tickets', storageService.getServiceTickets());
-  dbManager.setFallbackItems('amc_contracts', storageService.getAMCContracts());
-  dbManager.setFallbackItems('products', storageService.getProducts());
-  dbManager.setFallbackItems('vendors', storageService.getVendors());
-  dbManager.setFallbackItems('purchase_orders', storageService.getPurchaseOrders());
-  dbManager.setFallbackItems('boms', storageService.getBOMs());
-  dbManager.setFallbackItems('sales_invoices', storageService.getSalesInvoices());
-  dbManager.setFallbackItems('warehouses', storageService.getWarehouses());
-  dbManager.setFallbackItems('stock_movements', storageService.getStockMovements());
-  dbManager.setFallbackItems('stock_audits', storageService.getStockAudits());
-  dbManager.setFallbackItems('notifications', storageService.getNotifications());
+  const fallbackFile = path.join(process.cwd(), 'server', 'fallbackData.json');
+  if (fs.existsSync(fallbackFile)) {
+    const fallbackData = JSON.parse(fs.readFileSync(fallbackFile, 'utf-8'));
+    for (const [key, items] of Object.entries(fallbackData)) {
+      if (Array.isArray(items)) {
+        dbManager.setFallbackItems(key, items);
+      }
+    }
+  }
 } catch (e) {
   console.warn('Initial storage seed notice:', e);
 }

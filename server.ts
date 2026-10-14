@@ -5,7 +5,7 @@ import { createServer as createViteServer } from 'vite';
 import { GoogleGenAI } from '@google/genai';
 import Pusher from 'pusher';
 import dotenv from 'dotenv';
-import { apiRouter } from './server/routes/apiRouter';
+import { apiRouter } from './server/routes/apiRouter.ts';
 
 dotenv.config();
 
