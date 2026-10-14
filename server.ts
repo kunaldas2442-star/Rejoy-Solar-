@@ -87,6 +87,18 @@ function getPusherServer(): Pusher | null {
 getPusherServer();
 
 async function startServer() {
+  // Authoritative MySQL Connection Initialization on boot
+  try {
+    const dbInitResult = await dbManager.init();
+    if (dbInitResult.connected) {
+      console.log('[MySQL] Database connected and schema verified on server boot.');
+    } else {
+      console.log(`[MySQL] Server running in standby local mode (${dbInitResult.error || 'No DB configured'}).`);
+    }
+  } catch (err: any) {
+    console.warn('[MySQL] Initial connection notice on boot:', err?.message || err);
+  }
+
   const app = express();
   const PORT = 3000;
 
@@ -801,7 +813,7 @@ async function startServer() {
         return;
       }
 
-      const apiKey = process.env.GEMINI_API_KEY;
+      const apiKey = process.env.GEMINI_API_KEY || process.env.API_KEY;
       if (!apiKey) {
         res.status(503).json({
           error: 'GEMINI_API_KEY is not configured.',
