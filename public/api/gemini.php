@@ -6,6 +6,10 @@
  * Safely proxies prompts to Google Gemini API without exposing API keys to the browser.
  */
 header('Content-Type: application/json; charset=utf-8');
+header('X-Content-Type-Options: nosniff');
+header('X-Frame-Options: SAMEORIGIN');
+header('X-XSS-Protection: 1; mode=block');
+header('Referrer-Policy: strict-origin-when-cross-origin');
 header('Access-Control-Allow-Origin: *');
 header('Access-Control-Allow-Methods: POST, OPTIONS');
 header('Access-Control-Allow-Headers: Content-Type, Authorization');
@@ -63,6 +67,12 @@ $model = $requestData['model'] ?? 'gemini-2.5-flash';
 if (!$prompt || !is_string($prompt)) {
     http_response_code(400);
     echo json_encode(['error' => 'Missing "prompt" string in request body.']);
+    exit;
+}
+
+if (strlen($prompt) > 10000) {
+    http_response_code(400);
+    echo json_encode(['error' => 'Prompt exceeds maximum allowed length of 10,000 characters.']);
     exit;
 }
 

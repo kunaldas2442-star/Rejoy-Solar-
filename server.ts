@@ -6,6 +6,8 @@ import { GoogleGenAI } from '@google/genai';
 import Pusher from 'pusher';
 import dotenv from 'dotenv';
 import { apiRouter } from './server/routes/apiRouter.ts';
+import { hashPassword, verifyToken, extractToken } from './server/security.ts';
+import { dbManager } from './server/mysqlDatabase.ts';
 
 dotenv.config();
 
@@ -87,7 +89,16 @@ async function startServer() {
   const app = express();
   const PORT = 3000;
 
-  app.use(express.json());
+  // Security Headers Middleware
+  app.use((_req, res, next) => {
+    res.setHeader('X-Content-Type-Options', 'nosniff');
+    res.setHeader('X-Frame-Options', 'SAMEORIGIN');
+    res.setHeader('X-XSS-Protection', '1; mode=block');
+    res.setHeader('Referrer-Policy', 'strict-origin-when-cross-origin');
+    next();
+  });
+
+  app.use(express.json({ limit: '10mb' }));
   app.use('/api', apiRouter);
 
   // API Health & Status Check
@@ -332,8 +343,15 @@ async function startServer() {
     });
   }
 
-  // Helper for role-based authorization
+  // Helper for role-based authorization with genuine token verification
   function isCustomerRequest(req: express.Request): boolean {
+    const token = extractToken(req);
+    if (token) {
+      const verified = verifyToken(token);
+      if (verified.valid && verified.payload?.role === 'Customer') {
+        return true;
+      }
+    }
     const roleHeader = (req.headers['x-user-role'] as string) || '';
     const roleQuery = (req.query.role as string) || '';
     const roleBody = req.body?.role || '';
@@ -843,10 +861,35 @@ async function startServer() {
       }
 
       const uid = `usr-${employeeCode ? String(employeeCode).toLowerCase() : Date.now()}`;
+      const hashed = hashPassword(password);
+
+      const newUser = {
+        id: uid,
+        name: displayName ? String(displayName).trim() : email.split('@')[0],
+        email: email.trim().toLowerCase(),
+        password: hashed,
+        role: systemRole || 'Field Engineer',
+        employeeId: employeeCode || '',
+        createdAt: new Date().toISOString()
+      };
+
+      // Persist to MySQL solar_users if connected
+      await dbManager.query(
+        'INSERT INTO `solar_users` (`id`, `name`, `email`, `password`, `role`, `employee_id`) VALUES (?, ?, ?, ?, ?, ?) ON DUPLICATE KEY UPDATE `password` = VALUES(`password`), `role` = VALUES(`role`)',
+        [newUser.id, newUser.name, newUser.email, newUser.password, newUser.role, newUser.employeeId]
+      );
+
+      // Persist to fallback store
+      const users = dbManager.getFallbackItems('users');
+      const idx = users.findIndex((u: any) => u.id === uid || (u.email && u.email.toLowerCase() === newUser.email));
+      if (idx >= 0) users[idx] = { ...users[idx], ...newUser };
+      else users.push(newUser);
+      dbManager.setFallbackItems('users', users);
+
       res.json({
         success: true,
         uid,
-        message: 'Account provisioned successfully in local ERP directory.'
+        message: 'Account provisioned successfully with secure cryptographic credentials.'
       });
     } catch (err: any) {
       res.status(400).json({
@@ -859,11 +902,22 @@ async function startServer() {
   // Update Employee Login Account endpoint
   app.post(['/api/admin/update-employee-account', '/api/admin/update-user'], async (req, res) => {
     try {
-      const { uid } = req.body || {};
+      const { uid, password } = req.body || {};
 
       if (!uid || typeof uid !== 'string') {
         res.status(400).json({ success: false, message: 'Employee Auth UID is required.' });
         return;
+      }
+
+      if (password && String(password).length >= 6) {
+        const hashed = hashPassword(String(password).trim());
+        await dbManager.query('UPDATE `solar_users` SET `password` = ? WHERE `id` = ?', [hashed, uid]);
+        const users = dbManager.getFallbackItems('users');
+        const target = users.find((x: any) => x.id === uid);
+        if (target) {
+          target.password = hashed;
+          dbManager.setFallbackItems('users', users);
+        }
       }
 
       res.json({

@@ -2,6 +2,7 @@ import React, { createContext, useContext, useState, useEffect } from 'react';
 import { UserProfile, UserRole } from '../types/solar';
 import { storageService } from '../services/storage';
 import { liveLocationService } from '../services/liveLocationService';
+import { apiClient } from '../services/apiClient';
 
 export interface RoleDefinition {
   role: UserRole;
@@ -245,6 +246,30 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       const cleanEmail = email.trim().toLowerCase();
       const cleanPass = pass.trim();
 
+      // 1. Authenticate with backend API (authoritative MySQL + JWT token)
+      const apiRes = await apiClient.login(cleanEmail, cleanPass);
+      if (apiRes && apiRes.success && apiRes.user) {
+        const u = apiRes.user;
+        const profile: UserProfile = {
+          id: u.id || `usr-${u.email.replace(/[^a-z0-9]/g, '-')}`,
+          employeeId: u.employeeId || (u.role === 'Customer' ? `CUST-${u.customerId || u.id}` : 'EMP001'),
+          name: u.name || email.split('@')[0],
+          email: u.email,
+          role: u.role as UserRole,
+          phone: u.phone || '+91 98250 11223',
+          department: u.department || (u.role === 'Customer' ? 'Client Portal' : 'Administration'),
+          designation: u.designation || (u.role as string),
+          isFieldWorker: Boolean(u.isFieldWorker),
+          assignedProjects: []
+        };
+        saveUserProfile(profile);
+        storageService.syncFromBackend().catch(() => {});
+        return;
+      } else if (apiRes && apiRes.message && apiRes.message.includes('Invalid')) {
+        throw new Error(apiRes.message);
+      }
+
+      // 2. Local Fallback for offline mode
       const employees = storageService.getEmployees();
       const linkedEmp = employees.find(
         e => e.email && e.email.trim().toLowerCase() === cleanEmail
@@ -330,6 +355,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       };
 
       saveUserProfile(authenticatedProfile);
+      storageService.syncFromBackend().catch(() => {});
     } catch (err: any) {
       throw new Error(err.message || 'Authentication failed. Please verify credentials.');
     } finally {
@@ -384,6 +410,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       if (currentUser?.id) {
         liveLocationService.sendOffline(currentUser.id, currentUser.email, currentUser.employeeId).catch(() => {});
       }
+      await apiClient.logout().catch(() => {});
       localStorage.removeItem(ACTIVE_SESSION_STORAGE_KEY);
       setCurrentUser(null);
     } finally {
@@ -393,11 +420,12 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
   const resetPassword = async (email: string): Promise<void> => {
     const clean = email.trim().toLowerCase();
+    await apiClient.requestPasswordReset(clean).catch(() => {});
     const employees = storageService.getEmployees();
     const linkedEmp = employees.find(e => e.email && e.email.trim().toLowerCase() === clean);
     const demo = DEMO_ACCOUNTS.find(d => d.email.toLowerCase() === clean);
 
-    if (!linkedEmp && !demo && !clean.includes('rejoy')) {
+    if (!linkedEmp && !demo && !clean.includes('rejoy') && !clean.includes('solar')) {
       throw new Error('No user account found with that email address.');
     }
   };

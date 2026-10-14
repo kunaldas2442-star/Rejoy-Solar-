@@ -4,6 +4,10 @@
  * For Hostinger / cPanel / Apache Shared Hosting Deployments
  */
 header('Content-Type: application/json; charset=utf-8');
+header('X-Content-Type-Options: nosniff');
+header('X-Frame-Options: SAMEORIGIN');
+header('X-XSS-Protection: 1; mode=block');
+header('Referrer-Policy: strict-origin-when-cross-origin');
 header('Access-Control-Allow-Origin: *');
 header('Access-Control-Allow-Methods: GET, POST, PUT, DELETE, OPTIONS');
 header('Access-Control-Allow-Headers: Content-Type, Authorization, X-User-Id, X-User-Role');
@@ -11,6 +15,13 @@ header('Access-Control-Allow-Headers: Content-Type, Authorization, X-User-Id, X-
 if ($_SERVER['REQUEST_METHOD'] === 'OPTIONS') {
     http_response_code(200);
     exit;
+}
+
+function verifyUserPassword($password, $storedHash) {
+    if (!$password || !$storedHash) return false;
+    if (password_verify($password, $storedHash)) return true;
+    if (hash_equals((string)$storedHash, (string)$password)) return true;
+    return false;
 }
 
 $dbHost = getenv('DB_HOST') ?: 'localhost';
@@ -89,7 +100,7 @@ if (strpos($requestUri, 'auth/login') !== false) {
         $stmt = $pdo->prepare("SELECT * FROM solar_users WHERE LOWER(email) = ?");
         $stmt->execute([$email]);
         $user = $stmt->fetch();
-        if ($user && ($user['password'] === $pass || $pass === '123456')) {
+        if ($user && verifyUserPassword($pass, $user['password'])) {
             echo json_encode([
                 'success' => true,
                 'user' => [
@@ -109,7 +120,7 @@ if (strpos($requestUri, 'auth/login') !== false) {
         $stmt = $pdo->prepare("SELECT * FROM solar_customers WHERE LOWER(email) = ?");
         $stmt->execute([$email]);
         $cust = $stmt->fetch();
-        if ($cust && ($cust['password'] === $pass || $pass === '123456')) {
+        if ($cust && verifyUserPassword($pass, $cust['password'])) {
             echo json_encode([
                 'success' => true,
                 'user' => [

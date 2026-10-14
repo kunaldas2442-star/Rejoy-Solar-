@@ -53,6 +53,7 @@ import {
   DuplicateRecordError
 } from './validation';
 import { REFERENCE_5KW_QUOTATION } from '../utils/quotationDefaults';
+import { apiClient } from './apiClient';
 
 export {
   DuplicateRecordError,
@@ -3061,6 +3062,41 @@ class StorageService {
     }
   }
 
+  // Authoritative Backend Synchronizer
+  public async syncFromBackend(): Promise<void> {
+    try {
+      const [customers, leads, projects, quotations, products, employees] = await Promise.allSettled([
+        apiClient.getCustomers(),
+        apiClient.getLeads(),
+        apiClient.getProjects(),
+        apiClient.getQuotations(),
+        apiClient.getProducts(),
+        apiClient.getEmployees()
+      ]);
+
+      if (customers.status === 'fulfilled' && customers.value && customers.value.length > 0) {
+        this.set(STORAGE_KEYS.CUSTOMERS, customers.value);
+      }
+      if (leads.status === 'fulfilled' && leads.value && leads.value.length > 0) {
+        this.set(STORAGE_KEYS.LEADS, leads.value);
+      }
+      if (projects.status === 'fulfilled' && projects.value && projects.value.length > 0) {
+        this.set(STORAGE_KEYS.PROJECTS, projects.value);
+      }
+      if (quotations.status === 'fulfilled' && quotations.value && quotations.value.length > 0) {
+        this.set(STORAGE_KEYS.QUOTATIONS, quotations.value);
+      }
+      if (products.status === 'fulfilled' && products.value && products.value.length > 0) {
+        this.set(STORAGE_KEYS.PRODUCTS, products.value);
+      }
+      if (employees.status === 'fulfilled' && employees.value && employees.value.length > 0) {
+        this.set(STORAGE_KEYS.EMPLOYEES, employees.value);
+      }
+    } catch (e) {
+      console.warn('[Storage] Background sync notice:', e);
+    }
+  }
+
   // --- Leads ---
   getLeads(): Lead[] {
     return this.get<Lead[]>(STORAGE_KEYS.LEADS, initialLeads);
@@ -3075,6 +3111,7 @@ class StorageService {
       leads.unshift({ ...lead, createdAt: new Date().toISOString(), updatedAt: new Date().toISOString() });
     }
     this.set(STORAGE_KEYS.LEADS, leads);
+    apiClient.saveLead(lead).catch(() => {});
   }
 
   deleteLead(id: string): void {
@@ -3316,6 +3353,7 @@ class StorageService {
       customers.unshift({ ...customer, createdAt: new Date().toISOString(), updatedAt: new Date().toISOString() });
     }
     this.set(STORAGE_KEYS.CUSTOMERS, customers);
+    apiClient.saveCustomer(customer).catch(() => {});
   }
 
   updateCustomerPassword(customerId: string, newPassword: string): void {
@@ -3443,6 +3481,7 @@ class StorageService {
       projects.unshift({ ...project, createdAt: new Date().toISOString(), updatedAt: new Date().toISOString() });
     }
     this.set(STORAGE_KEYS.PROJECTS, projects);
+    apiClient.saveProject(project).catch(() => {});
   }
 
   // --- Multi-User Project Assignments ---
@@ -4112,6 +4151,7 @@ class StorageService {
       quotes.unshift(quote);
     }
     this.set(STORAGE_KEYS.QUOTATIONS, quotes);
+    apiClient.saveQuotation(quote).catch(() => {});
   }
 
   deleteQuotation(id: string): void {

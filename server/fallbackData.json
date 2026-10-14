@@ -195,6 +195,13 @@
   ],
   "customers": [
     {
+      "id": "cust-test-1791969728876",
+      "name": "Production Audit Customer Ltd",
+      "phone": "9825099999",
+      "email": "audit@example.com",
+      "password": "scrypt$b0def9940fb8eda24ffd4919711d0f76$42defdded6ce9dd087780c46a68e83c27c690375114186aaebecd10428b196c79b9947a99f1bf57b1eec497cd28133e30b0529f70226c49d22e2b65d64183d03"
+    },
+    {
       "id": "cust-manohar",
       "name": "Manohar Gyan Chandani",
       "companyName": "Manohar Gyan Chandani",
@@ -6377,6 +6384,204 @@
       "updatedAt": "2026-09-06T18:00:00Z"
     }
   ],
+  "project_stages": [],
+  "surveys": [],
+  "quotations": [
+    {
+      "id": "quote-audit-1791969728959",
+      "capacityKw": 5,
+      "baseProjectPrice": 300000,
+      "discountAmount": 10000,
+      "gstRate": 13.8,
+      "centralSubsidy": 78000,
+      "stateSubsidy": 0,
+      "baseAmount": 300000,
+      "taxableAmount": 290000,
+      "gstAmount": 40020,
+      "totalAmount": 330020,
+      "totalSubsidy": 78000,
+      "finalProjectInvestment": 252020
+    }
+  ],
+  "payments": [
+    {
+      "id": "pay-1",
+      "receiptNumber": "RCPT-2026-001",
+      "projectId": "proj-1",
+      "customerId": "cust-1",
+      "customerName": "ABC Industries Ltd.",
+      "milestone": "Advance",
+      "amount": 2000000,
+      "status": "PAID",
+      "dueDate": "2026-08-15",
+      "paidDate": "2026-08-16",
+      "paymentMode": "Bank NEFT/RTGS",
+      "transactionReference": "HDFC-RTGS-9821034",
+      "notes": "Advance 40% received upon agreement signing",
+      "tallySyncStatus": "SYNCED",
+      "tallyReference": "TALLY-VCH-8821"
+    },
+    {
+      "id": "pay-2",
+      "receiptNumber": "RCPT-2026-002",
+      "projectId": "proj-1",
+      "customerId": "cust-1",
+      "customerName": "ABC Industries Ltd.",
+      "milestone": "Installation",
+      "amount": 2000000,
+      "status": "PAID",
+      "dueDate": "2026-09-04",
+      "paidDate": "2026-09-05",
+      "paymentMode": "Bank NEFT/RTGS",
+      "transactionReference": "ICICI-RTGS-1102938",
+      "notes": "Second milestone 40% released upon structure & module delivery at site",
+      "tallySyncStatus": "SYNCED",
+      "tallyReference": "TALLY-VCH-8904"
+    },
+    {
+      "id": "pay-3",
+      "receiptNumber": "RCPT-2026-003",
+      "projectId": "proj-1",
+      "customerId": "cust-1",
+      "customerName": "ABC Industries Ltd.",
+      "milestone": "Final Handover",
+      "amount": 1000000,
+      "status": "PENDING",
+      "dueDate": "2026-09-20",
+      "notes": "Final 20% balance payable upon Net Metering sync & handover certificate",
+      "tallySyncStatus": "NOT SYNCED"
+    },
+    {
+      "id": "pay-4",
+      "receiptNumber": "RCPT-2026-004",
+      "projectId": "proj-2",
+      "customerId": "cust-2",
+      "customerName": "Zenith Textiles Mills",
+      "milestone": "Advance",
+      "amount": 4000000,
+      "status": "PAID",
+      "dueDate": "2026-08-20",
+      "paidDate": "2026-08-21",
+      "paymentMode": "Bank NEFT/RTGS",
+      "transactionReference": "SBI-RTGS-5542109",
+      "notes": "Advance 35% milestone",
+      "tallySyncStatus": "SYNCED",
+      "tallyReference": "TALLY-VCH-8833"
+    },
+    {
+      "id": "pay-5",
+      "receiptNumber": "RCPT-2026-005",
+      "projectId": "proj-4",
+      "customerId": "cust-4",
+      "customerName": "GreenTech Logistics Hub",
+      "milestone": "Advance",
+      "amount": 1300000,
+      "status": "PAID",
+      "dueDate": "2026-07-05",
+      "paidDate": "2026-07-06",
+      "paymentMode": "Bank NEFT/RTGS",
+      "tallySyncStatus": "SYNCED"
+    },
+    {
+      "id": "pay-6",
+      "receiptNumber": "RCPT-2026-006",
+      "projectId": "proj-4",
+      "customerId": "cust-4",
+      "customerName": "GreenTech Logistics Hub",
+      "milestone": "Final Handover",
+      "amount": 1300000,
+      "status": "PAID",
+      "dueDate": "2026-08-29",
+      "paidDate": "2026-08-30",
+      "paymentMode": "Bank NEFT/RTGS",
+      "tallySyncStatus": "SYNCED"
+    },
+    {
+      "id": "pay-7",
+      "receiptNumber": "RCPT-2026-007",
+      "projectId": "proj-5",
+      "customerId": "cust-5",
+      "customerName": "Sunrise Cold Storage & Agro",
+      "milestone": "Installation",
+      "amount": 1500000,
+      "status": "OVERDUE",
+      "dueDate": "2026-08-25",
+      "notes": "Payment delayed by client pending Discom inspection clearance",
+      "tallySyncStatus": "NOT SYNCED"
+    }
+  ],
+  "expenses": [
+    {
+      "id": "exp-1",
+      "expenseNumber": "EXP-2026-081",
+      "projectId": "proj-1",
+      "projectCode": "SOL-2026-001",
+      "vendorName": "Waaree Energies Ltd",
+      "category": "Material - Solar Panels",
+      "amount": 1850000,
+      "date": "2026-08-25",
+      "paymentMode": "Bank NEFT/RTGS",
+      "referenceNo": "WAA-INV-44910",
+      "notes": "185 units of 540W Mono PERC Bifacial Solar PV Modules",
+      "tallySyncStatus": "SYNCED"
+    },
+    {
+      "id": "exp-2",
+      "expenseNumber": "EXP-2026-082",
+      "projectId": "proj-1",
+      "projectCode": "SOL-2026-001",
+      "vendorName": "Sungrow Power India Pvt Ltd",
+      "category": "Material - Inverter",
+      "amount": 620000,
+      "date": "2026-08-28",
+      "paymentMode": "Bank NEFT/RTGS",
+      "referenceNo": "SG-INV-9921",
+      "notes": "1x 100kW SG100CX 3-Phase Multi-MPPT Inverter",
+      "tallySyncStatus": "SYNCED"
+    },
+    {
+      "id": "exp-3",
+      "expenseNumber": "EXP-2026-083",
+      "projectId": "proj-1",
+      "projectCode": "SOL-2026-001",
+      "vendorName": "Shreeji Galvanizers & Steel",
+      "category": "Structure Steel",
+      "amount": 420000,
+      "date": "2026-08-24",
+      "paymentMode": "Bank RTGS",
+      "referenceNo": "SGS-00219",
+      "notes": "Hot Dip Galvanized Solar Mounting Structure 80 micron HDG",
+      "tallySyncStatus": "SYNCED"
+    },
+    {
+      "id": "exp-4",
+      "expenseNumber": "EXP-2026-084",
+      "projectId": "proj-1",
+      "projectCode": "SOL-2026-001",
+      "vendorName": "Gujarat ReadyMix Concrete Co.",
+      "category": "Civil Raw Materials",
+      "amount": 145000,
+      "date": "2026-08-21",
+      "paymentMode": "Bank Cheque",
+      "referenceNo": "RMC-CHQ-104",
+      "notes": "M25 ready-mix concrete for roof pedestals",
+      "tallySyncStatus": "SYNCED"
+    },
+    {
+      "id": "exp-5",
+      "expenseNumber": "EXP-2026-085",
+      "projectId": "proj-1",
+      "projectCode": "SOL-2026-001",
+      "vendorName": "Polycab India Ltd",
+      "category": "Material - Cables & BOS",
+      "amount": 310000,
+      "date": "2026-09-02",
+      "paymentMode": "Bank NEFT",
+      "referenceNo": "POLY-8812",
+      "notes": "Solar DC 4 sq mm cable 1500m + 3.5C x 95 sq mm XLPE Aluminium AC cable",
+      "tallySyncStatus": "NOT SYNCED"
+    }
+  ],
   "employees": [
     {
       "id": "emp-1",
@@ -6658,185 +6863,6 @@
       "accountStatus": "ACTIVE",
       "accountCreatedAt": "2022-05-10T10:00:00Z",
       "accountCreatedBy": "System Init"
-    }
-  ],
-  "payments": [
-    {
-      "id": "pay-1",
-      "receiptNumber": "RCPT-2026-001",
-      "projectId": "proj-1",
-      "customerId": "cust-1",
-      "customerName": "ABC Industries Ltd.",
-      "milestone": "Advance",
-      "amount": 2000000,
-      "status": "PAID",
-      "dueDate": "2026-08-15",
-      "paidDate": "2026-08-16",
-      "paymentMode": "Bank NEFT/RTGS",
-      "transactionReference": "HDFC-RTGS-9821034",
-      "notes": "Advance 40% received upon agreement signing",
-      "tallySyncStatus": "SYNCED",
-      "tallyReference": "TALLY-VCH-8821"
-    },
-    {
-      "id": "pay-2",
-      "receiptNumber": "RCPT-2026-002",
-      "projectId": "proj-1",
-      "customerId": "cust-1",
-      "customerName": "ABC Industries Ltd.",
-      "milestone": "Installation",
-      "amount": 2000000,
-      "status": "PAID",
-      "dueDate": "2026-09-04",
-      "paidDate": "2026-09-05",
-      "paymentMode": "Bank NEFT/RTGS",
-      "transactionReference": "ICICI-RTGS-1102938",
-      "notes": "Second milestone 40% released upon structure & module delivery at site",
-      "tallySyncStatus": "SYNCED",
-      "tallyReference": "TALLY-VCH-8904"
-    },
-    {
-      "id": "pay-3",
-      "receiptNumber": "RCPT-2026-003",
-      "projectId": "proj-1",
-      "customerId": "cust-1",
-      "customerName": "ABC Industries Ltd.",
-      "milestone": "Final Handover",
-      "amount": 1000000,
-      "status": "PENDING",
-      "dueDate": "2026-09-20",
-      "notes": "Final 20% balance payable upon Net Metering sync & handover certificate",
-      "tallySyncStatus": "NOT SYNCED"
-    },
-    {
-      "id": "pay-4",
-      "receiptNumber": "RCPT-2026-004",
-      "projectId": "proj-2",
-      "customerId": "cust-2",
-      "customerName": "Zenith Textiles Mills",
-      "milestone": "Advance",
-      "amount": 4000000,
-      "status": "PAID",
-      "dueDate": "2026-08-20",
-      "paidDate": "2026-08-21",
-      "paymentMode": "Bank NEFT/RTGS",
-      "transactionReference": "SBI-RTGS-5542109",
-      "notes": "Advance 35% milestone",
-      "tallySyncStatus": "SYNCED",
-      "tallyReference": "TALLY-VCH-8833"
-    },
-    {
-      "id": "pay-5",
-      "receiptNumber": "RCPT-2026-005",
-      "projectId": "proj-4",
-      "customerId": "cust-4",
-      "customerName": "GreenTech Logistics Hub",
-      "milestone": "Advance",
-      "amount": 1300000,
-      "status": "PAID",
-      "dueDate": "2026-07-05",
-      "paidDate": "2026-07-06",
-      "paymentMode": "Bank NEFT/RTGS",
-      "tallySyncStatus": "SYNCED"
-    },
-    {
-      "id": "pay-6",
-      "receiptNumber": "RCPT-2026-006",
-      "projectId": "proj-4",
-      "customerId": "cust-4",
-      "customerName": "GreenTech Logistics Hub",
-      "milestone": "Final Handover",
-      "amount": 1300000,
-      "status": "PAID",
-      "dueDate": "2026-08-29",
-      "paidDate": "2026-08-30",
-      "paymentMode": "Bank NEFT/RTGS",
-      "tallySyncStatus": "SYNCED"
-    },
-    {
-      "id": "pay-7",
-      "receiptNumber": "RCPT-2026-007",
-      "projectId": "proj-5",
-      "customerId": "cust-5",
-      "customerName": "Sunrise Cold Storage & Agro",
-      "milestone": "Installation",
-      "amount": 1500000,
-      "status": "OVERDUE",
-      "dueDate": "2026-08-25",
-      "notes": "Payment delayed by client pending Discom inspection clearance",
-      "tallySyncStatus": "NOT SYNCED"
-    }
-  ],
-  "expenses": [
-    {
-      "id": "exp-1",
-      "expenseNumber": "EXP-2026-081",
-      "projectId": "proj-1",
-      "projectCode": "SOL-2026-001",
-      "vendorName": "Waaree Energies Ltd",
-      "category": "Material - Solar Panels",
-      "amount": 1850000,
-      "date": "2026-08-25",
-      "paymentMode": "Bank NEFT/RTGS",
-      "referenceNo": "WAA-INV-44910",
-      "notes": "185 units of 540W Mono PERC Bifacial Solar PV Modules",
-      "tallySyncStatus": "SYNCED"
-    },
-    {
-      "id": "exp-2",
-      "expenseNumber": "EXP-2026-082",
-      "projectId": "proj-1",
-      "projectCode": "SOL-2026-001",
-      "vendorName": "Sungrow Power India Pvt Ltd",
-      "category": "Material - Inverter",
-      "amount": 620000,
-      "date": "2026-08-28",
-      "paymentMode": "Bank NEFT/RTGS",
-      "referenceNo": "SG-INV-9921",
-      "notes": "1x 100kW SG100CX 3-Phase Multi-MPPT Inverter",
-      "tallySyncStatus": "SYNCED"
-    },
-    {
-      "id": "exp-3",
-      "expenseNumber": "EXP-2026-083",
-      "projectId": "proj-1",
-      "projectCode": "SOL-2026-001",
-      "vendorName": "Shreeji Galvanizers & Steel",
-      "category": "Structure Steel",
-      "amount": 420000,
-      "date": "2026-08-24",
-      "paymentMode": "Bank RTGS",
-      "referenceNo": "SGS-00219",
-      "notes": "Hot Dip Galvanized Solar Mounting Structure 80 micron HDG",
-      "tallySyncStatus": "SYNCED"
-    },
-    {
-      "id": "exp-4",
-      "expenseNumber": "EXP-2026-084",
-      "projectId": "proj-1",
-      "projectCode": "SOL-2026-001",
-      "vendorName": "Gujarat ReadyMix Concrete Co.",
-      "category": "Civil Raw Materials",
-      "amount": 145000,
-      "date": "2026-08-21",
-      "paymentMode": "Bank Cheque",
-      "referenceNo": "RMC-CHQ-104",
-      "notes": "M25 ready-mix concrete for roof pedestals",
-      "tallySyncStatus": "SYNCED"
-    },
-    {
-      "id": "exp-5",
-      "expenseNumber": "EXP-2026-085",
-      "projectId": "proj-1",
-      "projectCode": "SOL-2026-001",
-      "vendorName": "Polycab India Ltd",
-      "category": "Material - Cables & BOS",
-      "amount": 310000,
-      "date": "2026-09-02",
-      "paymentMode": "Bank NEFT",
-      "referenceNo": "POLY-8812",
-      "notes": "Solar DC 4 sq mm cable 1500m + 3.5C x 95 sq mm XLPE Aluminium AC cable",
-      "tallySyncStatus": "NOT SYNCED"
     }
   ],
   "attendance": [
@@ -7365,6 +7391,12 @@
     }
   ],
   "products": [
+    {
+      "id": "prod-solar-1791969728958",
+      "name": "540W Mono PERC Solar Panel",
+      "currentStock": 40,
+      "unitPrice": 12500
+    },
     {
       "id": "prod-1",
       "sku": "MOD-WAA-540",
@@ -8439,6 +8471,12 @@
   ],
   "stock_movements": [
     {
+      "productId": "prod-solar-1791969728958",
+      "movementType": "OUT",
+      "quantity": 10,
+      "referenceNumber": "REF-OUT-001"
+    },
+    {
       "id": "sm-1",
       "productId": "prod-1",
       "productName": "Waaree 540Wp Mono PERC Bifacial Solar PV Module",
@@ -8562,5 +8600,9 @@
       "linkType": "LEAD",
       "linkId": "lead-5"
     }
-  ]
+  ],
+  "acl_audit_logs": [],
+  "acl_config": [],
+  "settings": [],
+  "workforce_locations": []
 }
