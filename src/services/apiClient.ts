@@ -363,6 +363,19 @@ class ApiClient {
     }
   }
 
+  async deleteSalesInvoice(id: string): Promise<boolean> {
+    try {
+      const res = await fetch(`${this.baseUrl}/sales-invoices/${encodeURIComponent(id)}`, {
+        method: 'DELETE',
+        headers: this.getHeaders()
+      });
+      const data = await res.json();
+      return Boolean(data.success);
+    } catch {
+      return false;
+    }
+  }
+
   // --- Payments & Expenses ---
   async getPayments(): Promise<any[]> {
     try {
@@ -385,6 +398,19 @@ class ApiClient {
       return data.data || pay;
     } catch {
       return pay;
+    }
+  }
+
+  async deletePayment(id: string): Promise<boolean> {
+    try {
+      const res = await fetch(`${this.baseUrl}/payments/${encodeURIComponent(id)}`, {
+        method: 'DELETE',
+        headers: this.getHeaders()
+      });
+      const data = await res.json();
+      return Boolean(data.success);
+    } catch {
+      return false;
     }
   }
 
@@ -412,6 +438,19 @@ class ApiClient {
     }
   }
 
+  async deleteExpense(id: string): Promise<boolean> {
+    try {
+      const res = await fetch(`${this.baseUrl}/expenses/${encodeURIComponent(id)}`, {
+        method: 'DELETE',
+        headers: this.getHeaders()
+      });
+      const data = await res.json();
+      return Boolean(data.success);
+    } catch {
+      return false;
+    }
+  }
+
   // --- Inventory & Stock ---
   async getProducts(): Promise<any[]> {
     try {
@@ -434,6 +473,93 @@ class ApiClient {
       return data.data || prod;
     } catch {
       return prod;
+    }
+  }
+
+  async deleteProduct(id: string): Promise<boolean> {
+    try {
+      const res = await fetch(`${this.baseUrl}/products/${encodeURIComponent(id)}`, {
+        method: 'DELETE',
+        headers: this.getHeaders()
+      });
+      const data = await res.json();
+      return Boolean(data.success);
+    } catch {
+      return false;
+    }
+  }
+
+  async getVendors(): Promise<any[]> {
+    try {
+      const res = await fetch(`${this.baseUrl}/vendors`, { headers: this.getHeaders() });
+      const data = await res.json();
+      return data.data || [];
+    } catch {
+      return [];
+    }
+  }
+
+  async saveVendor(ven: any): Promise<any> {
+    try {
+      const res = await fetch(`${this.baseUrl}/vendors`, {
+        method: 'POST',
+        headers: this.getHeaders(),
+        body: JSON.stringify(ven)
+      });
+      const data = await res.json();
+      return data.data || ven;
+    } catch {
+      return ven;
+    }
+  }
+
+  async deleteVendor(id: string): Promise<boolean> {
+    try {
+      const res = await fetch(`${this.baseUrl}/vendors/${encodeURIComponent(id)}`, {
+        method: 'DELETE',
+        headers: this.getHeaders()
+      });
+      const data = await res.json();
+      return Boolean(data.success);
+    } catch {
+      return false;
+    }
+  }
+
+  async getPurchaseOrders(): Promise<any[]> {
+    try {
+      const res = await fetch(`${this.baseUrl}/purchase-orders`, { headers: this.getHeaders() });
+      const data = await res.json();
+      return data.data || [];
+    } catch {
+      return [];
+    }
+  }
+
+  async savePurchaseOrder(po: any): Promise<any> {
+    try {
+      const res = await fetch(`${this.baseUrl}/purchase-orders`, {
+        method: 'POST',
+        headers: this.getHeaders(),
+        body: JSON.stringify(po)
+      });
+      const data = await res.json();
+      return data.data || po;
+    } catch {
+      return po;
+    }
+  }
+
+  async deletePurchaseOrder(id: string): Promise<boolean> {
+    try {
+      const res = await fetch(`${this.baseUrl}/purchase-orders/${encodeURIComponent(id)}`, {
+        method: 'DELETE',
+        headers: this.getHeaders()
+      });
+      const data = await res.json();
+      return Boolean(data.success);
+    } catch {
+      return false;
     }
   }
 
@@ -485,6 +611,19 @@ class ApiClient {
     }
   }
 
+  async deleteEmployee(id: string): Promise<boolean> {
+    try {
+      const res = await fetch(`${this.baseUrl}/employees/${encodeURIComponent(id)}`, {
+        method: 'DELETE',
+        headers: this.getHeaders()
+      });
+      const data = await res.json();
+      return Boolean(data.success);
+    } catch {
+      return false;
+    }
+  }
+
   async getAttendance(): Promise<any[]> {
     try {
       const res = await fetch(`${this.baseUrl}/attendance`, { headers: this.getHeaders() });
@@ -509,6 +648,19 @@ class ApiClient {
     }
   }
 
+  async deleteAttendance(id: string): Promise<boolean> {
+    try {
+      const res = await fetch(`${this.baseUrl}/attendance/${encodeURIComponent(id)}`, {
+        method: 'DELETE',
+        headers: this.getHeaders()
+      });
+      const data = await res.json();
+      return Boolean(data.success);
+    } catch {
+      return false;
+    }
+  }
+
   async getPayslips(): Promise<any[]> {
     try {
       const res = await fetch(`${this.baseUrl}/payslips`, { headers: this.getHeaders() });
@@ -530,6 +682,19 @@ class ApiClient {
       return data.data || slip;
     } catch {
       return slip;
+    }
+  }
+
+  async deletePayslip(id: string): Promise<boolean> {
+    try {
+      const res = await fetch(`${this.baseUrl}/payslips/${encodeURIComponent(id)}`, {
+        method: 'DELETE',
+        headers: this.getHeaders()
+      });
+      const data = await res.json();
+      return Boolean(data.success);
+    } catch {
+      return false;
     }
   }
 
@@ -558,6 +723,19 @@ class ApiClient {
     }
   }
 
+  async deleteServiceTicket(id: string): Promise<boolean> {
+    try {
+      const res = await fetch(`${this.baseUrl}/service-tickets/${encodeURIComponent(id)}`, {
+        method: 'DELETE',
+        headers: this.getHeaders()
+      });
+      const data = await res.json();
+      return Boolean(data.success);
+    } catch {
+      return false;
+    }
+  }
+
   async getAmcContracts(): Promise<any[]> {
     try {
       const res = await fetch(`${this.baseUrl}/amc-contracts`, { headers: this.getHeaders() });
@@ -579,6 +757,19 @@ class ApiClient {
       return data.data || contract;
     } catch {
       return contract;
+    }
+  }
+
+  async deleteAmcContract(id: string): Promise<boolean> {
+    try {
+      const res = await fetch(`${this.baseUrl}/amc-contracts/${encodeURIComponent(id)}`, {
+        method: 'DELETE',
+        headers: this.getHeaders()
+      });
+      const data = await res.json();
+      return Boolean(data.success);
+    } catch {
+      return false;
     }
   }
 }

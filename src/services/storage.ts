@@ -3065,32 +3065,74 @@ class StorageService {
   // Authoritative Backend Synchronizer
   public async syncFromBackend(): Promise<void> {
     try {
-      const [customers, leads, projects, quotations, products, employees] = await Promise.allSettled([
+      const results = await Promise.allSettled([
         apiClient.getCustomers(),
         apiClient.getLeads(),
         apiClient.getProjects(),
         apiClient.getQuotations(),
         apiClient.getProducts(),
-        apiClient.getEmployees()
+        apiClient.getEmployees(),
+        apiClient.getPayments(),
+        apiClient.getExpenses(),
+        apiClient.getAttendance(),
+        apiClient.getPayslips(),
+        apiClient.getServiceTickets(),
+        apiClient.getAmcContracts(),
+        apiClient.getVendors(),
+        apiClient.getPurchaseOrders(),
+        apiClient.getSalesInvoices()
       ]);
 
-      if (customers.status === 'fulfilled' && customers.value && customers.value.length > 0) {
+      const [
+        customers, leads, projects, quotations, products, employees,
+        payments, expenses, attendance, payslips, serviceTickets,
+        amcContracts, vendors, purchaseOrders, salesInvoices
+      ] = results;
+
+      if (customers.status === 'fulfilled' && Array.isArray(customers.value) && customers.value.length > 0) {
         this.set(STORAGE_KEYS.CUSTOMERS, customers.value);
       }
-      if (leads.status === 'fulfilled' && leads.value && leads.value.length > 0) {
+      if (leads.status === 'fulfilled' && Array.isArray(leads.value) && leads.value.length > 0) {
         this.set(STORAGE_KEYS.LEADS, leads.value);
       }
-      if (projects.status === 'fulfilled' && projects.value && projects.value.length > 0) {
+      if (projects.status === 'fulfilled' && Array.isArray(projects.value) && projects.value.length > 0) {
         this.set(STORAGE_KEYS.PROJECTS, projects.value);
       }
-      if (quotations.status === 'fulfilled' && quotations.value && quotations.value.length > 0) {
+      if (quotations.status === 'fulfilled' && Array.isArray(quotations.value) && quotations.value.length > 0) {
         this.set(STORAGE_KEYS.QUOTATIONS, quotations.value);
       }
-      if (products.status === 'fulfilled' && products.value && products.value.length > 0) {
+      if (products.status === 'fulfilled' && Array.isArray(products.value) && products.value.length > 0) {
         this.set(STORAGE_KEYS.PRODUCTS, products.value);
       }
-      if (employees.status === 'fulfilled' && employees.value && employees.value.length > 0) {
+      if (employees.status === 'fulfilled' && Array.isArray(employees.value) && employees.value.length > 0) {
         this.set(STORAGE_KEYS.EMPLOYEES, employees.value);
+      }
+      if (payments.status === 'fulfilled' && Array.isArray(payments.value) && payments.value.length > 0) {
+        this.set(STORAGE_KEYS.PAYMENTS, payments.value);
+      }
+      if (expenses.status === 'fulfilled' && Array.isArray(expenses.value) && expenses.value.length > 0) {
+        this.set(STORAGE_KEYS.EXPENSES, expenses.value);
+      }
+      if (attendance.status === 'fulfilled' && Array.isArray(attendance.value) && attendance.value.length > 0) {
+        this.set(STORAGE_KEYS.ATTENDANCE, attendance.value);
+      }
+      if (payslips.status === 'fulfilled' && Array.isArray(payslips.value) && payslips.value.length > 0) {
+        this.set(STORAGE_KEYS.PAYSLIPS, payslips.value);
+      }
+      if (serviceTickets.status === 'fulfilled' && Array.isArray(serviceTickets.value) && serviceTickets.value.length > 0) {
+        this.set(STORAGE_KEYS.SERVICE_TICKETS, serviceTickets.value);
+      }
+      if (amcContracts.status === 'fulfilled' && Array.isArray(amcContracts.value) && amcContracts.value.length > 0) {
+        this.set(STORAGE_KEYS.AMC_CONTRACTS, amcContracts.value);
+      }
+      if (vendors.status === 'fulfilled' && Array.isArray(vendors.value) && vendors.value.length > 0) {
+        this.set(STORAGE_KEYS.VENDORS, vendors.value);
+      }
+      if (purchaseOrders.status === 'fulfilled' && Array.isArray(purchaseOrders.value) && purchaseOrders.value.length > 0) {
+        this.set(STORAGE_KEYS.PURCHASE_ORDERS, purchaseOrders.value);
+      }
+      if (salesInvoices.status === 'fulfilled' && Array.isArray(salesInvoices.value) && salesInvoices.value.length > 0) {
+        this.set(STORAGE_KEYS.SALES_INVOICES, salesInvoices.value);
       }
     } catch (e) {
       console.warn('[Storage] Background sync notice:', e);
@@ -3111,12 +3153,22 @@ class StorageService {
       leads.unshift({ ...lead, createdAt: new Date().toISOString(), updatedAt: new Date().toISOString() });
     }
     this.set(STORAGE_KEYS.LEADS, leads);
-    apiClient.saveLead(lead).catch(() => {});
+    apiClient.saveLead(lead).then(saved => {
+      if (saved && saved.id) {
+        const current = this.getLeads();
+        const i = current.findIndex(l => l.id === saved.id);
+        if (i >= 0) {
+          current[i] = { ...current[i], ...saved };
+          this.set(STORAGE_KEYS.LEADS, current);
+        }
+      }
+    }).catch(() => {});
   }
 
   deleteLead(id: string): void {
     const leads = this.getLeads().filter(l => l.id !== id);
     this.set(STORAGE_KEYS.LEADS, leads);
+    apiClient.deleteLead(id).catch(() => {});
   }
 
   addLead(leadData: Partial<Lead> & { customerName: string; phone: string; [key: string]: any }): Lead {
@@ -3174,6 +3226,7 @@ class StorageService {
 
     const newCustomer: Customer = {
       id: customerId,
+      customerCode: `CUST-${new Date().getFullYear()}-${Math.floor(1000 + Math.random() * 9000)}`,
       name: lead.customerName,
       companyName: lead.companyName || lead.customerName,
       customerType: 'Commercial',
@@ -3249,6 +3302,7 @@ class StorageService {
   // Create new Customer and Solar Project with strictly initialized Stage 1
   createCustomerAndProject(customerData: {
     name: string;
+    customerCode?: string;
     companyName?: string;
     customerType?: 'Residential' | 'Commercial' | 'Industrial';
     phone: string;
@@ -3279,6 +3333,7 @@ class StorageService {
 
     const newCustomer: Customer = {
       id: customerId,
+      customerCode: customerData.customerCode || `CUST-${new Date().getFullYear()}-${Math.floor(1000 + Math.random() * 9000)}`,
       name: customerData.name,
       companyName: customerData.companyName || customerData.name,
       customerType: customerData.customerType || 'Commercial',
@@ -3353,7 +3408,22 @@ class StorageService {
       customers.unshift({ ...customer, createdAt: new Date().toISOString(), updatedAt: new Date().toISOString() });
     }
     this.set(STORAGE_KEYS.CUSTOMERS, customers);
-    apiClient.saveCustomer(customer).catch(() => {});
+    apiClient.saveCustomer(customer).then(saved => {
+      if (saved && saved.id) {
+        const current = this.getCustomers();
+        const i = current.findIndex(c => c.id === saved.id);
+        if (i >= 0) {
+          current[i] = { ...current[i], ...saved };
+          this.set(STORAGE_KEYS.CUSTOMERS, current);
+        }
+      }
+    }).catch(() => {});
+  }
+
+  deleteCustomer(id: string): void {
+    const customers = this.getCustomers().filter(c => c.id !== id);
+    this.set(STORAGE_KEYS.CUSTOMERS, customers);
+    apiClient.deleteCustomer(id).catch(() => {});
   }
 
   updateCustomerPassword(customerId: string, newPassword: string): void {
@@ -3481,7 +3551,22 @@ class StorageService {
       projects.unshift({ ...project, createdAt: new Date().toISOString(), updatedAt: new Date().toISOString() });
     }
     this.set(STORAGE_KEYS.PROJECTS, projects);
-    apiClient.saveProject(project).catch(() => {});
+    apiClient.saveProject(project).then(saved => {
+      if (saved && saved.id) {
+        const current = this.getProjects();
+        const i = current.findIndex(p => p.id === saved.id);
+        if (i >= 0) {
+          current[i] = { ...current[i], ...saved };
+          this.set(STORAGE_KEYS.PROJECTS, current);
+        }
+      }
+    }).catch(() => {});
+  }
+
+  deleteProject(id: string): void {
+    const projects = this.getProjects().filter(p => p.id !== id);
+    this.set(STORAGE_KEYS.PROJECTS, projects);
+    apiClient.deleteProject(id).catch(() => {});
   }
 
   // --- Multi-User Project Assignments ---
@@ -3867,6 +3952,22 @@ class StorageService {
       payments.unshift(payment);
     }
     this.set(STORAGE_KEYS.PAYMENTS, payments);
+    apiClient.savePayment(payment).then(saved => {
+      if (saved && saved.id) {
+        const current = this.getPayments();
+        const i = current.findIndex(p => p.id === saved.id);
+        if (i >= 0) {
+          current[i] = { ...current[i], ...saved };
+          this.set(STORAGE_KEYS.PAYMENTS, current);
+        }
+      }
+    }).catch(() => {});
+  }
+
+  deletePayment(id: string): void {
+    const payments = this.getPayments().filter(p => p.id !== id);
+    this.set(STORAGE_KEYS.PAYMENTS, payments);
+    apiClient.deletePayment(id).catch(() => {});
   }
 
   // --- Expenses ---
@@ -3883,6 +3984,22 @@ class StorageService {
       expenses.unshift(expense);
     }
     this.set(STORAGE_KEYS.EXPENSES, expenses);
+    apiClient.saveExpense(expense).then(saved => {
+      if (saved && saved.id) {
+        const current = this.getExpenses();
+        const i = current.findIndex(e => e.id === saved.id);
+        if (i >= 0) {
+          current[i] = { ...current[i], ...saved };
+          this.set(STORAGE_KEYS.EXPENSES, current);
+        }
+      }
+    }).catch(() => {});
+  }
+
+  deleteExpense(id: string): void {
+    const expenses = this.getExpenses().filter(e => e.id !== id);
+    this.set(STORAGE_KEYS.EXPENSES, expenses);
+    apiClient.deleteExpense(id).catch(() => {});
   }
 
   // --- Employees & HRMS ---
@@ -3933,15 +4050,29 @@ class StorageService {
       employees.unshift(emp);
     }
     this.set(STORAGE_KEYS.EMPLOYEES, employees);
+    apiClient.saveEmployee(emp).then(saved => {
+      if (saved && saved.id) {
+        const current = this.getEmployees();
+        const i = current.findIndex(e => e.id === saved.id);
+        if (i >= 0) {
+          current[i] = { ...current[i], ...saved };
+          this.set(STORAGE_KEYS.EMPLOYEES, current);
+        }
+      }
+    }).catch(() => {});
   }
 
   saveEmployees(employees: Employee[]): void {
     this.set(STORAGE_KEYS.EMPLOYEES, employees);
+    employees.forEach(emp => {
+      apiClient.saveEmployee(emp).catch(() => {});
+    });
   }
 
   deleteEmployee(id: string): void {
     const employees = this.getEmployees().filter(e => e.id !== id);
     this.set(STORAGE_KEYS.EMPLOYEES, employees);
+    apiClient.deleteEmployee(id).catch(() => {});
   }
 
   // --- Attendance ---
@@ -3958,6 +4089,7 @@ class StorageService {
       attendance.unshift(record);
     }
     this.set(STORAGE_KEYS.ATTENDANCE, attendance);
+    apiClient.saveAttendance(record).catch(() => {});
   }
 
   recordAttendance(record: AttendanceRecord): void {
@@ -3967,6 +4099,7 @@ class StorageService {
   deleteAttendanceRecord(id: string): void {
     const attendance = this.getAttendance().filter(a => a.id !== id);
     this.set(STORAGE_KEYS.ATTENDANCE, attendance);
+    apiClient.deleteAttendance(id).catch(() => {});
   }
 
   // --- Payroll / Payslips ---
@@ -3983,11 +4116,13 @@ class StorageService {
       payslips.unshift(payslip);
     }
     this.set(STORAGE_KEYS.PAYSLIPS, payslips);
+    apiClient.savePayslip(payslip).catch(() => {});
   }
 
   deletePayslip(id: string): void {
     const payslips = this.getPayslips().filter(p => p.id !== id);
     this.set(STORAGE_KEYS.PAYSLIPS, payslips);
+    apiClient.deletePayslip(id).catch(() => {});
   }
 
   // --- Holidays ---
@@ -4031,19 +4166,28 @@ class StorageService {
       tickets.unshift(ticket);
     }
     this.set(STORAGE_KEYS.SERVICE_TICKETS, tickets);
+    apiClient.saveServiceTicket(ticket).catch(() => {});
+  }
+
+  deleteServiceTicket(id: string): void {
+    const tickets = this.getServiceTickets().filter(t => t.id !== id && t.ticketId !== id);
+    this.set(STORAGE_KEYS.SERVICE_TICKETS, tickets);
+    apiClient.deleteServiceTicket(id).catch(() => {});
   }
 
   resolveServiceTicket(ticketId: string, resolutionNotes?: string): void {
     const tickets = this.getServiceTickets();
     const index = tickets.findIndex(t => t.id === ticketId || t.ticketId === ticketId);
     if (index >= 0) {
-      tickets[index] = {
+      const updated = {
         ...tickets[index],
-        status: 'RESOLVED',
+        status: 'RESOLVED' as const,
         resolvedDate: new Date().toISOString().slice(0, 10),
         notes: resolutionNotes ? `${tickets[index].notes ? tickets[index].notes + ' | ' : ''}Resolved: ${resolutionNotes}` : tickets[index].notes
       };
+      tickets[index] = updated;
       this.set(STORAGE_KEYS.SERVICE_TICKETS, tickets);
+      apiClient.saveServiceTicket(updated).catch(() => {});
     }
   }
 
@@ -4115,6 +4259,13 @@ class StorageService {
       contracts.unshift(contract);
     }
     this.set(STORAGE_KEYS.AMC_CONTRACTS, contracts);
+    apiClient.saveAmcContract(contract).catch(() => {});
+  }
+
+  deleteAMCContract(id: string): void {
+    const contracts = this.getAMCContracts().filter(c => c.id !== id && c.amcCode !== id);
+    this.set(STORAGE_KEYS.AMC_CONTRACTS, contracts);
+    apiClient.deleteAmcContract(id).catch(() => {});
   }
 
   // --- Site Surveys ---
@@ -4157,6 +4308,7 @@ class StorageService {
   deleteQuotation(id: string): void {
     const quotes = this.getQuotations().filter(q => q.id !== id);
     this.set(STORAGE_KEYS.QUOTATIONS, quotes);
+    apiClient.deleteQuotation(id).catch(() => {});
   }
 
   getNextQuotationNumber(): string {
@@ -4244,11 +4396,13 @@ class StorageService {
       });
     }
     this.set(STORAGE_KEYS.PRODUCTS, products);
+    apiClient.saveProduct(product).catch(() => {});
   }
 
   deleteProduct(id: string): void {
     const products = this.getProducts().filter(p => p.id !== id);
     this.set(STORAGE_KEYS.PRODUCTS, products);
+    apiClient.deleteProduct(id).catch(() => {});
   }
 
   adjustStock(
@@ -4279,6 +4433,7 @@ class StorageService {
     prod.currentStock = Math.max(0, previousTotal + diff);
     prod.updatedAt = new Date().toISOString();
     this.set(STORAGE_KEYS.PRODUCTS, products);
+    apiClient.saveProduct(prod).catch(() => {});
 
     const isAudit = reason.toLowerCase().includes('audit') || reason.toLowerCase().includes('physical');
 
@@ -4320,11 +4475,13 @@ class StorageService {
       });
     }
     this.set(STORAGE_KEYS.VENDORS, vendors);
+    apiClient.saveVendor(vendor).catch(() => {});
   }
 
   deleteVendor(id: string): void {
     const vendors = this.getVendors().filter(v => v.id !== id);
     this.set(STORAGE_KEYS.VENDORS, vendors);
+    apiClient.deleteVendor(id).catch(() => {});
   }
 
   // ==========================================

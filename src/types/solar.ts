@@ -68,6 +68,7 @@ export type CustomerStatus = 'ACTIVE' | 'COMPLETED' | 'ON HOLD' | 'CANCELLED';
 
 export interface Customer {
   id: string;
+  customerCode?: string;
   name: string;
   companyName?: string;
   customerType: CustomerType;

@@ -1,3 +1,6 @@
+import dotenv from 'dotenv';
+dotenv.config();
+
 import express from 'express';
 import type { Request, Response } from 'express';
 import fs from 'fs';
@@ -473,6 +476,16 @@ apiRouter.put('/products/:id', optionalAuthenticate, async (req: Request, res: R
   res.json({ success: true, data: saved });
 });
 
+apiRouter.delete('/products/:id', optionalAuthenticate, async (req: Request, res: Response) => {
+  const { id } = req.params;
+  if (!isValidId(id)) {
+    res.status(400).json({ success: false, message: 'Invalid product ID.' });
+    return;
+  }
+  await dbManager.deleteProduct(id);
+  res.json({ success: true, message: 'Product deleted.' });
+});
+
 // Atomic Stock Movement
 apiRouter.post('/stock-movements', optionalAuthenticate, async (req: Request, res: Response) => {
   const payload = sanitizeObject(req.body);
@@ -507,6 +520,27 @@ apiRouter.post('/vendors', optionalAuthenticate, async (req: Request, res: Respo
   res.status(201).json({ success: true, data: saved });
 });
 
+apiRouter.put('/vendors/:id', optionalAuthenticate, async (req: Request, res: Response) => {
+  const { id } = req.params;
+  if (!isValidId(id)) {
+    res.status(400).json({ success: false, message: 'Invalid vendor ID.' });
+    return;
+  }
+  const payload = sanitizeObject(req.body);
+  const updated = await dbManager.saveVendor({ ...payload, id });
+  res.json({ success: true, data: updated });
+});
+
+apiRouter.delete('/vendors/:id', optionalAuthenticate, async (req: Request, res: Response) => {
+  const { id } = req.params;
+  if (!isValidId(id)) {
+    res.status(400).json({ success: false, message: 'Invalid vendor ID.' });
+    return;
+  }
+  await dbManager.deleteVendor(id);
+  res.json({ success: true, message: 'Vendor record deleted.' });
+});
+
 // Purchase Orders
 apiRouter.get('/purchase-orders', async (_req: Request, res: Response) => {
   const items = await dbManager.getPurchaseOrders();
@@ -525,6 +559,27 @@ apiRouter.post('/purchase-orders', optionalAuthenticate, async (req: Request, re
   res.status(201).json({ success: true, data: saved });
 });
 
+apiRouter.put('/purchase-orders/:id', optionalAuthenticate, async (req: Request, res: Response) => {
+  const { id } = req.params;
+  if (!isValidId(id)) {
+    res.status(400).json({ success: false, message: 'Invalid PO ID.' });
+    return;
+  }
+  const payload = sanitizeObject(req.body);
+  const updated = await dbManager.savePurchaseOrder({ ...payload, id });
+  res.json({ success: true, data: updated });
+});
+
+apiRouter.delete('/purchase-orders/:id', optionalAuthenticate, async (req: Request, res: Response) => {
+  const { id } = req.params;
+  if (!isValidId(id)) {
+    res.status(400).json({ success: false, message: 'Invalid PO ID.' });
+    return;
+  }
+  await dbManager.deletePurchaseOrder(id);
+  res.json({ success: true, message: 'Purchase order deleted.' });
+});
+
 // Sales Invoices
 apiRouter.get('/sales-invoices', async (_req: Request, res: Response) => {
   const items = await dbManager.getSalesInvoices();
@@ -541,6 +596,27 @@ apiRouter.post('/sales-invoices', optionalAuthenticate, async (req: Request, res
   };
   const saved = await dbManager.saveSalesInvoice(inv);
   res.status(201).json({ success: true, data: saved });
+});
+
+apiRouter.put('/sales-invoices/:id', optionalAuthenticate, async (req: Request, res: Response) => {
+  const { id } = req.params;
+  if (!isValidId(id)) {
+    res.status(400).json({ success: false, message: 'Invalid invoice ID.' });
+    return;
+  }
+  const payload = sanitizeObject(req.body);
+  const updated = await dbManager.saveSalesInvoice({ ...payload, id });
+  res.json({ success: true, data: updated });
+});
+
+apiRouter.delete('/sales-invoices/:id', optionalAuthenticate, async (req: Request, res: Response) => {
+  const { id } = req.params;
+  if (!isValidId(id)) {
+    res.status(400).json({ success: false, message: 'Invalid invoice ID.' });
+    return;
+  }
+  await dbManager.deleteSalesInvoice(id);
+  res.json({ success: true, message: 'Sales invoice deleted.' });
 });
 
 // Warehouses
@@ -579,6 +655,16 @@ apiRouter.post('/payments', optionalAuthenticate, async (req: Request, res: Resp
   res.status(201).json({ success: true, data: saved });
 });
 
+apiRouter.delete('/payments/:id', optionalAuthenticate, async (req: Request, res: Response) => {
+  const { id } = req.params;
+  if (!isValidId(id)) {
+    res.status(400).json({ success: false, message: 'Invalid payment ID.' });
+    return;
+  }
+  await dbManager.deletePayment(id);
+  res.json({ success: true, message: 'Payment record deleted.' });
+});
+
 apiRouter.get('/expenses', async (_req: Request, res: Response) => {
   const items = await dbManager.getExpenses();
   res.json({ success: true, count: items.length, data: items });
@@ -589,6 +675,16 @@ apiRouter.post('/expenses', optionalAuthenticate, async (req: Request, res: Resp
   const exp = { ...payload, id: payload.id && isValidId(payload.id) ? payload.id : `exp-${Date.now()}` };
   const saved = await dbManager.saveExpense(exp);
   res.status(201).json({ success: true, data: saved });
+});
+
+apiRouter.delete('/expenses/:id', optionalAuthenticate, async (req: Request, res: Response) => {
+  const { id } = req.params;
+  if (!isValidId(id)) {
+    res.status(400).json({ success: false, message: 'Invalid expense ID.' });
+    return;
+  }
+  await dbManager.deleteExpense(id);
+  res.json({ success: true, message: 'Expense record deleted.' });
 });
 
 // ==========================================================
@@ -607,6 +703,27 @@ apiRouter.post('/employees', optionalAuthenticate, async (req: Request, res: Res
   res.status(201).json({ success: true, data: saved });
 });
 
+apiRouter.put('/employees/:id', optionalAuthenticate, async (req: Request, res: Response) => {
+  const { id } = req.params;
+  if (!isValidId(id)) {
+    res.status(400).json({ success: false, message: 'Invalid employee ID.' });
+    return;
+  }
+  const payload = sanitizeObject(req.body);
+  const updated = await dbManager.saveEmployee({ ...payload, id });
+  res.json({ success: true, data: updated });
+});
+
+apiRouter.delete('/employees/:id', optionalAuthenticate, async (req: Request, res: Response) => {
+  const { id } = req.params;
+  if (!isValidId(id)) {
+    res.status(400).json({ success: false, message: 'Invalid employee ID.' });
+    return;
+  }
+  await dbManager.deleteEmployee(id);
+  res.json({ success: true, message: 'Employee record deleted.' });
+});
+
 apiRouter.get('/attendance', async (_req: Request, res: Response) => {
   const items = await dbManager.getAttendance();
   res.json({ success: true, count: items.length, data: items });
@@ -619,6 +736,16 @@ apiRouter.post('/attendance', optionalAuthenticate, async (req: Request, res: Re
   res.status(201).json({ success: true, data: saved });
 });
 
+apiRouter.delete('/attendance/:id', optionalAuthenticate, async (req: Request, res: Response) => {
+  const { id } = req.params;
+  if (!isValidId(id)) {
+    res.status(400).json({ success: false, message: 'Invalid attendance ID.' });
+    return;
+  }
+  await dbManager.deleteAttendance(id);
+  res.json({ success: true, message: 'Attendance record deleted.' });
+});
+
 apiRouter.get('/payslips', async (_req: Request, res: Response) => {
   const items = await dbManager.getPayslips();
   res.json({ success: true, count: items.length, data: items });
@@ -629,6 +756,16 @@ apiRouter.post('/payslips', optionalAuthenticate, async (req: Request, res: Resp
   const slip = { ...payload, id: payload.id && isValidId(payload.id) ? payload.id : `slip-${Date.now()}` };
   const saved = await dbManager.savePayslip(slip);
   res.status(201).json({ success: true, data: saved });
+});
+
+apiRouter.delete('/payslips/:id', optionalAuthenticate, async (req: Request, res: Response) => {
+  const { id } = req.params;
+  if (!isValidId(id)) {
+    res.status(400).json({ success: false, message: 'Invalid payslip ID.' });
+    return;
+  }
+  await dbManager.deletePayslip(id);
+  res.json({ success: true, message: 'Payslip deleted.' });
 });
 
 apiRouter.get('/holidays', (_req: Request, res: Response) => {
@@ -652,6 +789,16 @@ apiRouter.post('/service-tickets', optionalAuthenticate, async (req: Request, re
   res.status(201).json({ success: true, data: saved });
 });
 
+apiRouter.delete('/service-tickets/:id', optionalAuthenticate, async (req: Request, res: Response) => {
+  const { id } = req.params;
+  if (!isValidId(id)) {
+    res.status(400).json({ success: false, message: 'Invalid ticket ID.' });
+    return;
+  }
+  await dbManager.deleteServiceTicket(id);
+  res.json({ success: true, message: 'Service ticket deleted.' });
+});
+
 apiRouter.get('/amc-contracts', async (_req: Request, res: Response) => {
   const items = await dbManager.getAmcContracts();
   res.json({ success: true, count: items.length, data: items });
@@ -662,6 +809,16 @@ apiRouter.post('/amc-contracts', optionalAuthenticate, async (req: Request, res:
   const contract = { ...payload, id: payload.id && isValidId(payload.id) ? payload.id : `amc-${Date.now()}` };
   const saved = await dbManager.saveAmcContract(contract);
   res.status(201).json({ success: true, data: saved });
+});
+
+apiRouter.delete('/amc-contracts/:id', optionalAuthenticate, async (req: Request, res: Response) => {
+  const { id } = req.params;
+  if (!isValidId(id)) {
+    res.status(400).json({ success: false, message: 'Invalid contract ID.' });
+    return;
+  }
+  await dbManager.deleteAmcContract(id);
+  res.json({ success: true, message: 'AMC contract deleted.' });
 });
 
 // ==========================================================

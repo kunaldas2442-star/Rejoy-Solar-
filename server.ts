@@ -5,11 +5,12 @@ import { createServer as createViteServer } from 'vite';
 import { GoogleGenAI } from '@google/genai';
 import Pusher from 'pusher';
 import dotenv from 'dotenv';
+
+dotenv.config();
+
 import { apiRouter } from './server/routes/apiRouter.ts';
 import { hashPassword, verifyToken, extractToken } from './server/security.ts';
 import { dbManager } from './server/mysqlDatabase.ts';
-
-dotenv.config();
 
 function cleanEnv(val?: string | null): string {
   if (!val) return '';
