@@ -1064,19 +1064,19 @@ ON DUPLICATE KEY UPDATE `amount` = VALUES(`amount`);
 
 -- Pushing 5 records into solar_attendance
 INSERT INTO `solar_attendance` (`id`, `employee_id`, `employee_name`, `attendance_date`, `check_in_time`, `check_out_time`, `check_in_gps_json`, `check_out_gps_json`, `site_project_id`, `site_project_title`, `status`)
-VALUES ('att-1', 'emp-3', 'Rajesh Kumar', NULL, '09:05 AM', '06:15 PM', NULL, NULL, 'proj-1', '100 kW Rooftop Solar - ABC Industries', 'FIELD VISIT')
+VALUES ('att-1', 'emp-3', 'Rajesh Kumar', '2026-08-01', '09:05 AM', '06:15 PM', NULL, NULL, 'proj-1', '100 kW Rooftop Solar - ABC Industries', 'FIELD VISIT')
 ON DUPLICATE KEY UPDATE `status` = VALUES(`status`);
 INSERT INTO `solar_attendance` (`id`, `employee_id`, `employee_name`, `attendance_date`, `check_in_time`, `check_out_time`, `check_in_gps_json`, `check_out_gps_json`, `site_project_id`, `site_project_title`, `status`)
-VALUES ('att-2', 'emp-7', 'Manoj Tiwari', NULL, '08:50 AM', '05:45 PM', NULL, NULL, 'proj-1', '100 kW Rooftop Solar - ABC Industries', 'FIELD VISIT')
+VALUES ('att-2', 'emp-7', 'Manoj Tiwari', '2026-08-01', '08:50 AM', '05:45 PM', NULL, NULL, 'proj-1', '100 kW Rooftop Solar - ABC Industries', 'FIELD VISIT')
 ON DUPLICATE KEY UPDATE `status` = VALUES(`status`);
 INSERT INTO `solar_attendance` (`id`, `employee_id`, `employee_name`, `attendance_date`, `check_in_time`, `check_out_time`, `check_in_gps_json`, `check_out_gps_json`, `site_project_id`, `site_project_title`, `status`)
-VALUES ('att-3', 'emp-2', 'Amit Sharma', NULL, '09:15 AM', NULL, NULL, NULL, '', '', 'PRESENT')
+VALUES ('att-3', 'emp-2', 'Amit Sharma', '2026-08-01', '09:15 AM', NULL, NULL, NULL, '', '', 'PRESENT')
 ON DUPLICATE KEY UPDATE `status` = VALUES(`status`);
 INSERT INTO `solar_attendance` (`id`, `employee_id`, `employee_name`, `attendance_date`, `check_in_time`, `check_out_time`, `check_in_gps_json`, `check_out_gps_json`, `site_project_id`, `site_project_title`, `status`)
-VALUES ('att-4', 'emp-9', 'Sneha Kulkarni', NULL, '09:30 AM', NULL, NULL, NULL, '', '', 'PRESENT')
+VALUES ('att-4', 'emp-9', 'Sneha Kulkarni', '2026-08-01', '09:30 AM', NULL, NULL, NULL, '', '', 'PRESENT')
 ON DUPLICATE KEY UPDATE `status` = VALUES(`status`);
 INSERT INTO `solar_attendance` (`id`, `employee_id`, `employee_name`, `attendance_date`, `check_in_time`, `check_out_time`, `check_in_gps_json`, `check_out_gps_json`, `site_project_id`, `site_project_title`, `status`)
-VALUES ('att-5', 'emp-4', 'Priya Verma', NULL, '09:10 AM', NULL, NULL, NULL, '', '', 'PRESENT')
+VALUES ('att-5', 'emp-4', 'Priya Verma', '2026-08-01', '09:10 AM', NULL, NULL, NULL, '', '', 'PRESENT')
 ON DUPLICATE KEY UPDATE `status` = VALUES(`status`);
 
 -- Pushing 2 records into solar_payslips
@@ -1280,10 +1280,10 @@ ON DUPLICATE KEY UPDATE `balance_after` = VALUES(`balance_after`);
 
 -- Pushing 2 records into solar_stock_audits
 INSERT INTO `solar_stock_audits` (`id`, `audit_number`, `warehouse_id`, `warehouse_name`, `audit_date`, `auditor_name`, `status`, `discrepancies_count`, `items_json`, `notes`)
-VALUES ('audit-1', 'AUD-2026-001', 'wh-1', 'Central Solar Logistics Hub - Pune', '2026-09-15', NULL, 'COMPLETED', 0, '[]', 'Quarterly comprehensive physical verification of solar modules and inverters.')
+VALUES ('audit-1', 'AUD-2026-001', 'wh-1', 'Central Solar Logistics Hub - Pune', '2026-09-15', 'Amit Sharma', 'COMPLETED', 0, '[]', 'Quarterly comprehensive physical verification of solar modules and inverters.')
 ON DUPLICATE KEY UPDATE `status` = VALUES(`status`);
 INSERT INTO `solar_stock_audits` (`id`, `audit_number`, `warehouse_id`, `warehouse_name`, `audit_date`, `auditor_name`, `status`, `discrepancies_count`, `items_json`, `notes`)
-VALUES ('audit-2', 'AUD-2026-002', 'wh-2', 'North India Distribution Hub - Gurugram', '2026-09-20', NULL, 'COMPLETED', 0, '[]', 'Biannual hardware count, mounting rails, and DC isolators reconciliation.')
+VALUES ('audit-2', 'AUD-2026-002', 'wh-2', 'North India Distribution Hub - Gurugram', '2026-09-20', 'Amit Sharma', 'COMPLETED', 0, '[]', 'Biannual hardware count, mounting rails, and DC isolators reconciliation.')
 ON DUPLICATE KEY UPDATE `status` = VALUES(`status`);
 
 -- Pushing 2 records into solar_quotations
