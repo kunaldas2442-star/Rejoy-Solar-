@@ -772,6 +772,82 @@ class ApiClient {
       return false;
     }
   }
+
+  // --- Site Surveys ---
+  async getSurveys(): Promise<any[]> {
+    try {
+      const res = await fetch(`${this.baseUrl}/surveys`, { headers: this.getHeaders() });
+      const data = await res.json();
+      return data.data || [];
+    } catch {
+      return [];
+    }
+  }
+
+  async saveSurvey(survey: any): Promise<any> {
+    try {
+      const res = await fetch(`${this.baseUrl}/surveys`, {
+        method: 'POST',
+        headers: this.getHeaders(),
+        body: JSON.stringify(survey)
+      });
+      const data = await res.json();
+      return data.data || survey;
+    } catch {
+      return survey;
+    }
+  }
+
+  async deleteSurvey(id: string): Promise<boolean> {
+    try {
+      const res = await fetch(`${this.baseUrl}/surveys/${encodeURIComponent(id)}`, {
+        method: 'DELETE',
+        headers: this.getHeaders()
+      });
+      const data = await res.json();
+      return Boolean(data.success);
+    } catch {
+      return false;
+    }
+  }
+
+  // --- Bill of Materials ---
+  async getBOMs(): Promise<any[]> {
+    try {
+      const res = await fetch(`${this.baseUrl}/boms`, { headers: this.getHeaders() });
+      const data = await res.json();
+      return data.data || [];
+    } catch {
+      return [];
+    }
+  }
+
+  async saveBOM(bom: any): Promise<any> {
+    try {
+      const res = await fetch(`${this.baseUrl}/boms`, {
+        method: 'POST',
+        headers: this.getHeaders(),
+        body: JSON.stringify(bom)
+      });
+      const data = await res.json();
+      return data.data || bom;
+    } catch {
+      return bom;
+    }
+  }
+
+  async deleteBOM(id: string): Promise<boolean> {
+    try {
+      const res = await fetch(`${this.baseUrl}/boms/${encodeURIComponent(id)}`, {
+        method: 'DELETE',
+        headers: this.getHeaders()
+      });
+      const data = await res.json();
+      return Boolean(data.success);
+    } catch {
+      return false;
+    }
+  }
 }
 
 export const apiClient = new ApiClient();

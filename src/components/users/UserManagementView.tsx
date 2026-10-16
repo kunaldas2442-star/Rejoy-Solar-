@@ -308,8 +308,13 @@ export const UserManagementView: React.FC = () => {
         return emp;
       });
 
-      storageService.saveEmployees(updated);
-      setEmployees(updated);
+      const updatedEmp = updated.find(emp => emp.id === editingEmployee.id);
+      if (updatedEmp) {
+        storageService.saveEmployee(updatedEmp);
+      } else {
+        storageService.saveEmployees(updated);
+      }
+      setEmployees(storageService.getEmployees());
       showToast(`Employee ${cleanName} updated successfully`, 'success');
     } else {
       // Create new record
@@ -334,9 +339,8 @@ export const UserManagementView: React.FC = () => {
         createdAt: new Date().toISOString()
       };
 
-      const updated = [newEmp, ...employees];
-      storageService.saveEmployees(updated);
-      setEmployees(updated);
+      storageService.saveEmployee(newEmp);
+      setEmployees(storageService.getEmployees());
       showToast(`Employee ${newEmp.name} created successfully`, 'success');
     }
 

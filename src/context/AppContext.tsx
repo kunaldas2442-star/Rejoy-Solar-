@@ -412,6 +412,9 @@ export const AppProvider: React.FC<{ children: React.ReactNode }> = ({ children 
     setNotifications(storageService.getNotifications());
     setSettings(storageService.getSettings());
 
+    // Synchronize authoritative backend data on application mount
+    storageService.syncFromBackend().catch(() => {});
+
     const handleStorageUpdate = () => {
       setNotifications(storageService.getNotifications());
       setSettings(storageService.getSettings());

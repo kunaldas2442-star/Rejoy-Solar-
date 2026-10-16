@@ -3080,13 +3080,16 @@ class StorageService {
         apiClient.getAmcContracts(),
         apiClient.getVendors(),
         apiClient.getPurchaseOrders(),
-        apiClient.getSalesInvoices()
+        apiClient.getSalesInvoices(),
+        apiClient.getSurveys(),
+        apiClient.getBOMs()
       ]);
 
       const [
         customers, leads, projects, quotations, products, employees,
         payments, expenses, attendance, payslips, serviceTickets,
-        amcContracts, vendors, purchaseOrders, salesInvoices
+        amcContracts, vendors, purchaseOrders, salesInvoices,
+        surveys, boms
       ] = results;
 
       if (customers.status === 'fulfilled' && Array.isArray(customers.value) && customers.value.length > 0) {
@@ -3133,6 +3136,12 @@ class StorageService {
       }
       if (salesInvoices.status === 'fulfilled' && Array.isArray(salesInvoices.value) && salesInvoices.value.length > 0) {
         this.set(STORAGE_KEYS.SALES_INVOICES, salesInvoices.value);
+      }
+      if (surveys.status === 'fulfilled' && Array.isArray(surveys.value) && surveys.value.length > 0) {
+        this.set(STORAGE_KEYS.SURVEYS, surveys.value);
+      }
+      if (boms.status === 'fulfilled' && Array.isArray(boms.value) && boms.value.length > 0) {
+        this.set(STORAGE_KEYS.BOMS, boms.value);
       }
     } catch (e) {
       console.warn('[Storage] Background sync notice:', e);
@@ -4282,6 +4291,7 @@ class StorageService {
       surveys.unshift(survey);
     }
     this.set(STORAGE_KEYS.SURVEYS, surveys);
+    apiClient.saveSurvey(survey).catch(() => {});
   }
 
   // --- Quotations ---
@@ -4603,6 +4613,7 @@ class StorageService {
       orders.unshift(updatedOrder);
     }
     this.set(STORAGE_KEYS.PURCHASE_ORDERS, orders);
+    apiClient.savePurchaseOrder(updatedOrder).catch(() => {});
   }
 
   recordPurchaseReceipt(
@@ -4758,12 +4769,14 @@ class StorageService {
       order.stockUpdated = true;
       order.updatedAt = new Date().toISOString();
       this.set(STORAGE_KEYS.PURCHASE_ORDERS, orders);
+      apiClient.savePurchaseOrder(order).catch(() => {});
     }
   }
 
   deletePurchaseOrder(id: string): void {
     const orders = this.getPurchaseOrders().filter(o => o.id !== id);
     this.set(STORAGE_KEYS.PURCHASE_ORDERS, orders);
+    apiClient.deletePurchaseOrder(id).catch(() => {});
   }
 
   // ==========================================
@@ -4790,6 +4803,7 @@ class StorageService {
       });
     }
     this.set(STORAGE_KEYS.BOMS, boms);
+    apiClient.saveBOM(bom).catch(() => {});
   }
 
   allocateBOMStock(bomId: string, performedBy: string = 'Project Engineer'): boolean {
@@ -4847,6 +4861,7 @@ class StorageService {
   deleteBOM(id: string): void {
     const boms = this.getBOMs().filter(b => b.id !== id);
     this.set(STORAGE_KEYS.BOMS, boms);
+    apiClient.deleteBOM(id).catch(() => {});
   }
 
   // ==========================================
@@ -4908,11 +4923,13 @@ class StorageService {
       invoices.unshift(updated);
     }
     this.set(STORAGE_KEYS.SALES_INVOICES, invoices);
+    apiClient.saveSalesInvoice(updated).catch(() => {});
   }
 
   deleteSalesInvoice(id: string): void {
     const invoices = this.getSalesInvoices().filter(i => i.id !== id);
     this.set(STORAGE_KEYS.SALES_INVOICES, invoices);
+    apiClient.deleteSalesInvoice(id).catch(() => {});
   }
 
   // ==========================================

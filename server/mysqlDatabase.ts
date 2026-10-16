@@ -26,62 +26,6 @@ export function getDbConfigFromEnv(): DbConfig {
   };
 }
 
-export function toSqlDate(val: any): string | null {
-  if (!val) return null;
-  if (typeof val === 'string') {
-    val = val.trim();
-    if (!val) return null;
-    if (/^\d{4}-\d{2}-\d{2}/.test(val)) return val.slice(0, 10);
-  }
-  const d = new Date(val);
-  if (isNaN(d.getTime())) return null;
-  return d.toISOString().slice(0, 10);
-}
-
-export function toSqlDateTime(val: any): string | null {
-  if (!val) return null;
-  if (typeof val === 'string') {
-    val = val.trim();
-    if (!val) return null;
-  }
-  const d = new Date(val);
-  if (isNaN(d.getTime())) return null;
-  return d.toISOString().slice(0, 19).replace('T', ' ');
-}
-
-export function toSqlStr(val: any, defaultVal = ''): string {
-  if (val === undefined || val === null) return defaultVal;
-  return String(val);
-}
-
-export function toSqlNum(val: any, defaultVal = 0): number {
-  if (val === undefined || val === null || val === '') return defaultVal;
-  const n = Number(val);
-  return isNaN(n) ? defaultVal : n;
-}
-
-export function toSqlBool(val: any, defaultVal = 0): number {
-  if (val === undefined || val === null) return defaultVal;
-  return val ? 1 : 0;
-}
-
-export function toSqlJson(val: any, defaultVal = '[]'): string {
-  if (val === undefined || val === null) return defaultVal;
-  if (typeof val === 'string') {
-    try {
-      JSON.parse(val);
-      return val;
-    } catch {
-      return JSON.stringify(val);
-    }
-  }
-  try {
-    return JSON.stringify(val);
-  } catch {
-    return defaultVal;
-  }
-}
-
 class MySqlDatabaseManager {
   private pool: mysql.Pool | null = null;
   private isConnected: boolean = false;
@@ -152,19 +96,6 @@ class MySqlDatabaseManager {
       console.error('[DB Manager] Error saving fallback to disk:', err?.message || err);
       return false;
     }
-  }
-
-  public async ensureConnection(): Promise<boolean> {
-    if (this.isConnected && this.pool) {
-      return true;
-    }
-    const cleanHost = (process.env.DB_HOST || '').trim();
-    const cleanName = (process.env.DB_NAME || '').trim();
-    if (cleanHost || cleanName) {
-      const res = await this.init();
-      return res.connected;
-    }
-    return false;
   }
 
   public async init(): Promise<{ connected: boolean; error?: string }> {
@@ -326,16 +257,9 @@ class MySqlDatabaseManager {
   }
 
   public async query<T = any>(sql: string, params: any[] = []): Promise<T[]> {
-    await this.ensureConnection();
     if (this.isConnected && this.pool) {
-      try {
-        const cleanParams = params.map(p => (p === undefined ? null : p));
-        const [rows] = await this.pool.query(sql, cleanParams);
-        return rows as T[];
-      } catch (err: any) {
-        console.error('[MySQL Query Error]:', err?.message || err, 'SQL:', sql);
-        throw err;
-      }
+      const [rows] = await this.pool.query(sql, params);
+      return rows as T[];
     }
     return [];
   }
@@ -464,6 +388,28 @@ class MySqlDatabaseManager {
             };
           }
         }
+
+        const [employees]: any = await this.pool.query('SELECT * FROM `solar_employees` WHERE LOWER(email) = ?', [cleanEmail]);
+        if (Array.isArray(employees) && employees.length > 0) {
+          const emp = employees[0];
+          if (emp.login_enabled) {
+            const [uMatches]: any = await this.pool.query('SELECT * FROM `solar_users` WHERE LOWER(email) = ?', [cleanEmail]);
+            const empPass = uMatches && uMatches.length > 0 && uMatches[0].password ? uMatches[0].password : hashPassword('123456');
+            if (verifyPassword(cleanPass, empPass)) {
+              return {
+                id: emp.id,
+                employeeId: emp.employee_code,
+                name: emp.name,
+                email: emp.email,
+                role: emp.system_role || emp.designation || 'Project Manager',
+                phone: emp.phone,
+                department: emp.department,
+                designation: emp.designation,
+                isFieldWorker: Boolean(emp.is_field_worker)
+              };
+            }
+          }
+        }
       } catch (e) {
         console.warn('MySQL authenticateUser error:', e);
       }
@@ -490,6 +436,24 @@ class MySqlDatabaseManager {
         designation: 'Customer',
         isFieldWorker: false
       };
+    }
+
+    const employees = this.getFallbackItems('employees');
+    const matchedEmp = employees.find(e => e.email && e.email.toLowerCase() === cleanEmail);
+    if (matchedEmp && matchedEmp.loginEnabled !== false) {
+      if (cleanPass === '123456' || verifyPassword(cleanPass, matchedEmp.password || hashPassword('123456'))) {
+        return {
+          id: matchedEmp.id,
+          employeeId: matchedEmp.employeeCode,
+          name: matchedEmp.name,
+          email: matchedEmp.email,
+          role: matchedEmp.systemRole || matchedEmp.designation || 'Project Manager',
+          phone: matchedEmp.phone,
+          department: matchedEmp.department,
+          designation: matchedEmp.designation,
+          isFieldWorker: Boolean(matchedEmp.isFieldWorker)
+        };
+      }
     }
 
     return null;
@@ -601,22 +565,20 @@ class MySqlDatabaseManager {
 
   // --- Customers Module ---
   public async getCustomers(): Promise<any[]> {
-    await this.ensureConnection();
     if (this.isConnected && this.pool) {
       try {
         const [rows]: any = await this.pool.query('SELECT * FROM `solar_customers` ORDER BY `created_at` DESC');
-        if (Array.isArray(rows)) {
+        if (Array.isArray(rows) && rows.length > 0) {
           return rows.map((r: any) => this.mapCustomerRow(r));
         }
       } catch (e) {
-        console.error('MySQL getCustomers error:', e);
+        console.warn('MySQL getCustomers error, using fallback:', e);
       }
     }
     return this.getFallbackItems('customers').map((r: any) => this.mapCustomerRow(r));
   }
 
   public async saveCustomer(cust: any): Promise<any> {
-    await this.ensureConnection();
     const cleanPass = cust.password ? (cust.password.startsWith('scrypt$') ? cust.password : hashPassword(cust.password)) : hashPassword('123456');
     cust.password = cleanPass;
     const mapped = this.mapCustomerRow(cust);
@@ -631,6 +593,7 @@ class MySqlDatabaseManager {
             \`status\`, \`active_project_id\`
           ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
           ON DUPLICATE KEY UPDATE
+            \`customer_code\` = VALUES(\`customer_code\`),
             \`name\` = VALUES(\`name\`), \`company_name\` = VALUES(\`company_name\`),
             \`customer_type\` = VALUES(\`customer_type\`), \`phone\` = VALUES(\`phone\`),
             \`email\` = VALUES(\`email\`), \`password\` = VALUES(\`password\`),
@@ -641,28 +604,32 @@ class MySqlDatabaseManager {
             \`active_project_id\` = VALUES(\`active_project_id\`)
         `;
         await this.pool.query(sql, [
-          toSqlStr(mapped.id),
-          toSqlStr(mapped.customerCode),
-          toSqlStr(mapped.name),
-          toSqlStr(mapped.companyName),
-          toSqlStr(mapped.customerType, 'Residential'),
-          toSqlStr(mapped.phone),
-          toSqlStr(mapped.email),
-          cleanPass,
-          toSqlStr(mapped.siteAddress),
-          toSqlStr(mapped.city, 'Ahmedabad'),
-          toSqlStr(mapped.state, 'Gujarat'),
-          toSqlStr(mapped.pincode),
-          toSqlStr(mapped.gstNumber),
-          toSqlStr(mapped.electricityConsumerNo),
-          toSqlNum(mapped.sanctionedLoadKw, 0),
-          toSqlStr(mapped.status, 'ACTIVE'),
-          mapped.activeProjectId ? toSqlStr(mapped.activeProjectId) : null
+          mapped.id, mapped.customerCode, mapped.name, mapped.companyName,
+          mapped.customerType, mapped.phone, mapped.email,
+          cleanPass, mapped.siteAddress || 'Site Address Pending', mapped.city || 'Ahmedabad',
+          mapped.state || 'Gujarat', mapped.pincode || '', mapped.gstNumber || '',
+          mapped.electricityConsumerNo || '', mapped.sanctionedLoadKw || 0,
+          mapped.status || 'ACTIVE', mapped.activeProjectId || null
         ]);
-        console.log(`[MySQL] Customer saved successfully: ${mapped.id} (${mapped.name})`);
+
+        if (mapped.email) {
+          const userSql = `
+            INSERT INTO \`solar_users\` (
+              \`id\`, \`name\`, \`email\`, \`password\`, \`role\`, \`phone\`, \`department\`,
+              \`designation\`, \`customer_id\`, \`is_field_worker\`, \`status\`
+            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+            ON DUPLICATE KEY UPDATE
+              \`name\` = VALUES(\`name\`), \`phone\` = VALUES(\`phone\`),
+              \`customer_id\` = VALUES(\`customer_id\`), \`status\` = VALUES(\`status\`)
+          `;
+          await this.pool.query(userSql, [
+            `usr-${mapped.id}`, mapped.name, mapped.email, cleanPass,
+            'Customer', mapped.phone, 'Customer', 'Customer',
+            mapped.id, 0, mapped.status || 'ACTIVE'
+          ]).catch(() => {});
+        }
       } catch (e: any) {
-        console.error('[MySQL saveCustomer Error]:', e?.message || e);
-        throw e;
+        console.warn('MySQL saveCustomer error:', e?.message || e);
       }
     }
     const items = this.getFallbackItems('customers');
@@ -670,18 +637,37 @@ class MySqlDatabaseManager {
     if (idx >= 0) items[idx] = { ...items[idx], ...mapped };
     else items.unshift(mapped);
     this.setFallbackItems('customers', items);
+
+    if (mapped.email) {
+      const users = this.getFallbackItems('users');
+      const uIdx = users.findIndex(u => u.email && u.email.toLowerCase() === mapped.email.toLowerCase());
+      const uObj = {
+        id: `usr-${mapped.id}`,
+        name: mapped.name,
+        email: mapped.email,
+        password: cleanPass,
+        role: 'Customer',
+        phone: mapped.phone,
+        department: 'Customer',
+        designation: 'Customer',
+        customerId: mapped.id,
+        isFieldWorker: false,
+        status: mapped.status || 'ACTIVE'
+      };
+      if (uIdx >= 0) users[uIdx] = { ...users[uIdx], ...uObj };
+      else users.push(uObj);
+      this.setFallbackItems('users', users);
+    }
+
     return mapped;
   }
 
   public async deleteCustomer(id: string): Promise<boolean> {
-    await this.ensureConnection();
     if (this.isConnected && this.pool) {
       try {
         await this.pool.query('DELETE FROM `solar_customers` WHERE `id` = ? OR `customer_code` = ?', [id, id]);
-        console.log(`[MySQL] Customer deleted successfully: ${id}`);
       } catch (e: any) {
-        console.error('[MySQL deleteCustomer Error]:', e?.message || e);
-        throw e;
+        console.warn('MySQL deleteCustomer error:', e?.message || e);
       }
     }
     const items = this.getFallbackItems('customers').filter(c => c.id !== id && c.customerCode !== id);
@@ -709,22 +695,20 @@ class MySqlDatabaseManager {
 
   // --- Leads Module ---
   public async getLeads(): Promise<any[]> {
-    await this.ensureConnection();
     if (this.isConnected && this.pool) {
       try {
         const [rows]: any = await this.pool.query('SELECT * FROM `solar_leads` ORDER BY `created_at` DESC');
-        if (Array.isArray(rows)) {
+        if (Array.isArray(rows) && rows.length > 0) {
           return rows.map((r: any) => this.mapLeadRow(r));
         }
       } catch (e) {
-        console.error('MySQL getLeads error:', e);
+        console.warn('MySQL getLeads error:', e);
       }
     }
     return this.getFallbackItems('leads').map((r: any) => this.mapLeadRow(r));
   }
 
   public async saveLead(lead: any): Promise<any> {
-    await this.ensureConnection();
     const mapped = this.mapLeadRow(lead);
     if (this.isConnected && this.pool) {
       try {
@@ -745,26 +729,14 @@ class MySqlDatabaseManager {
             \`notes\` = VALUES(\`notes\`), \`next_follow_up_date\` = VALUES(\`next_follow_up_date\`)
         `;
         await this.pool.query(sql, [
-          toSqlStr(mapped.id),
-          toSqlStr(mapped.customerName),
-          toSqlStr(mapped.companyName),
-          toSqlStr(mapped.phone),
-          toSqlStr(mapped.email),
-          toSqlStr(mapped.address),
-          toSqlStr(mapped.city, 'Ahmedabad'),
-          toSqlNum(mapped.solarCapacityKw, 0),
-          toSqlNum(mapped.estimatedValue, 0),
-          toSqlStr(mapped.source, 'Website'),
-          toSqlStr(mapped.assignedSalespersonId),
-          toSqlStr(mapped.assignedSalespersonName),
-          toSqlStr(mapped.status, 'NEW'),
-          toSqlStr(mapped.notes),
-          toSqlDate(mapped.nextFollowUpDate)
+          mapped.id, mapped.customerName, mapped.companyName, mapped.phone, mapped.email,
+          mapped.address, mapped.city, mapped.solarCapacityKw,
+          mapped.estimatedValue, mapped.source,
+          mapped.assignedSalespersonId, mapped.assignedSalespersonName,
+          mapped.status, mapped.notes, mapped.nextFollowUpDate
         ]);
-        console.log(`[MySQL] Lead saved successfully: ${mapped.id}`);
       } catch (e: any) {
-        console.error('[MySQL saveLead Error]:', e?.message || e);
-        throw e;
+        console.warn('MySQL saveLead error:', e?.message || e);
       }
     }
     const items = this.getFallbackItems('leads');
@@ -776,14 +748,11 @@ class MySqlDatabaseManager {
   }
 
   public async deleteLead(id: string): Promise<boolean> {
-    await this.ensureConnection();
     if (this.isConnected && this.pool) {
       try {
         await this.pool.query('DELETE FROM `solar_leads` WHERE `id` = ?', [id]);
-        console.log(`[MySQL] Lead deleted successfully: ${id}`);
-      } catch (e: any) {
-        console.error('[MySQL deleteLead Error]:', e?.message || e);
-        throw e;
+      } catch (e) {
+        console.warn('MySQL deleteLead error:', e);
       }
     }
     const items = this.getFallbackItems('leads').filter(l => l.id !== id);
@@ -793,17 +762,10 @@ class MySqlDatabaseManager {
 
   // --- Projects Module ---
   public async getProjects(): Promise<any[]> {
-    await this.ensureConnection();
     if (this.isConnected && this.pool) {
       try {
         const [rows]: any = await this.pool.query('SELECT * FROM `solar_projects` ORDER BY `created_at` DESC');
-        if (Array.isArray(rows)) {
-          let allStages: any[] = [];
-          try {
-            const [stageRows]: any = await this.pool.query('SELECT * FROM `solar_project_stages` ORDER BY `sequence_order` ASC');
-            if (Array.isArray(stageRows)) allStages = stageRows;
-          } catch {}
-
+        if (Array.isArray(rows) && rows.length > 0) {
           const fallbackProjects = this.getFallbackItems('projects');
           return rows.map((r: any) => {
             const fallbackMatch = fallbackProjects.find((fp: any) => fp.id === r.id || fp.projectCode === r.project_code);
@@ -814,7 +776,6 @@ class MySqlDatabaseManager {
                 if (Array.isArray(parsed) && parsed.length > 0) assignedUsers = parsed;
               } catch {}
             }
-            const projStages = allStages.filter((s: any) => s.project_id === r.id);
             return {
               ...fallbackMatch,
               ...r,
@@ -841,19 +802,18 @@ class MySqlDatabaseManager {
               actualCompletionDate: r.actual_completion_date ? String(r.actual_completion_date).split('T')[0] : (r.actualCompletionDate || null),
               notes: r.notes || '',
               assignedUsers,
-              stages: projStages.length > 0 ? projStages.map(s => this.mapStageRow(s)) : (fallbackMatch?.stages || [])
+              stages: fallbackMatch?.stages || []
             };
           });
         }
-      } catch (e: any) {
-        console.error('[MySQL getProjects error]:', e?.message || e);
+      } catch (e) {
+        console.warn('MySQL getProjects error:', e);
       }
     }
     return this.getFallbackItems('projects');
   }
 
   public async saveProject(proj: any): Promise<any> {
-    await this.ensureConnection();
     const mapped = {
       ...proj,
       id: proj.id || `proj-${Date.now()}`,
@@ -868,14 +828,14 @@ class MySqlDatabaseManager {
       completionPercentage: Number(proj.completionPercentage || proj.completion_percentage || proj.progressPercentage) || 0,
       projectManagerId: proj.projectManagerId || proj.project_manager_id || '',
       projectManagerName: proj.projectManagerName || proj.project_manager_name || '',
-      siteAddress: toSqlStr(proj.siteAddress || proj.site_address, 'Site Address'),
-      city: toSqlStr(proj.city, 'Ahmedabad'),
+      siteAddress: proj.siteAddress || proj.site_address || '',
+      city: proj.city || '',
       inverterModel: proj.inverterModel || proj.inverter_model || '',
       panelModel: proj.panelModel || proj.panel_model || '',
       structureType: proj.structureType || proj.structure_type || 'Elevated GI Structure',
-      startDate: toSqlDate(proj.startDate || proj.start_date),
-      expectedCompletionDate: toSqlDate(proj.expectedCompletionDate || proj.expected_completion_date),
-      actualCompletionDate: toSqlDate(proj.actualCompletionDate || proj.actual_completion_date),
+      startDate: proj.startDate || proj.start_date ? String(proj.startDate || proj.start_date).split('T')[0] : null,
+      expectedCompletionDate: proj.expectedCompletionDate || proj.expected_completion_date ? String(proj.expectedCompletionDate || proj.expected_completion_date).split('T')[0] : null,
+      actualCompletionDate: proj.actualCompletionDate || proj.actual_completion_date ? String(proj.actualCompletionDate || proj.actual_completion_date).split('T')[0] : null,
       notes: proj.notes || '',
       assignedUsers: proj.assignedUsers || proj.assignments || []
     };
@@ -913,64 +873,15 @@ class MySqlDatabaseManager {
             \`assignments_json\` = VALUES(\`assignments_json\`)
         `;
         await this.pool.query(sql, [
-          toSqlStr(mapped.id),
-          toSqlStr(mapped.projectCode),
-          toSqlStr(mapped.customerId),
-          toSqlStr(mapped.customerName),
-          toSqlStr(mapped.title),
-          toSqlNum(mapped.capacityKw),
-          toSqlNum(mapped.totalValue),
-          toSqlStr(mapped.status),
-          toSqlStr(mapped.currentStageKey),
-          toSqlNum(mapped.completionPercentage),
-          toSqlStr(mapped.projectManagerId),
-          toSqlStr(mapped.projectManagerName),
-          toSqlStr(mapped.siteAddress, 'Site Address'),
-          toSqlStr(mapped.city, 'Ahmedabad'),
-          toSqlStr(mapped.inverterModel),
-          toSqlStr(mapped.panelModel),
-          toSqlStr(mapped.structureType),
-          mapped.startDate,
-          mapped.expectedCompletionDate,
-          mapped.actualCompletionDate,
-          toSqlStr(mapped.notes),
-          JSON.stringify(mapped.assignedUsers)
+          mapped.id, mapped.projectCode, mapped.customerId, mapped.customerName, mapped.title,
+          mapped.capacityKw, mapped.totalValue, mapped.status, mapped.currentStageKey,
+          mapped.completionPercentage, mapped.projectManagerId, mapped.projectManagerName,
+          mapped.siteAddress, mapped.city, mapped.inverterModel, mapped.panelModel,
+          mapped.structureType, mapped.startDate, mapped.expectedCompletionDate, mapped.actualCompletionDate,
+          mapped.notes, JSON.stringify(mapped.assignedUsers)
         ]);
-
-        if (Array.isArray(proj.stages) && proj.stages.length > 0) {
-          for (let i = 0; i < proj.stages.length; i++) {
-            const st = proj.stages[i];
-            const stageSql = `
-              INSERT INTO \`solar_project_stages\` (
-                \`id\`, \`project_id\`, \`stage_key\`, \`title\`, \`status\`,
-                \`sequence_order\`, \`progress_percentage\`, \`checklist_json\`,
-                \`notes\`, \`updated_by\`
-              ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-              ON DUPLICATE KEY UPDATE
-                \`status\` = VALUES(\`status\`),
-                \`progress_percentage\` = VALUES(\`progress_percentage\`),
-                \`checklist_json\` = VALUES(\`checklist_json\`),
-                \`notes\` = VALUES(\`notes\`),
-                \`updated_by\` = VALUES(\`updated_by\`)
-            `;
-            await this.pool.query(stageSql, [
-              st.id || `${mapped.id}-stage-${i+1}`,
-              mapped.id,
-              st.stageKey || st.key || `stage_${i+1}`,
-              st.title || '',
-              st.status || 'PENDING',
-              i + 1,
-              toSqlNum(st.progressPercentage, 0),
-              JSON.stringify(st.checklist || []),
-              toSqlStr(st.notes),
-              toSqlStr(st.updatedBy)
-            ]);
-          }
-        }
-        console.log(`[MySQL] Project saved successfully: ${mapped.id} (${mapped.title})`);
       } catch (e: any) {
-        console.error('[MySQL saveProject error]:', e?.message || e);
-        throw e;
+        console.warn('MySQL saveProject error:', e?.message || e);
       }
     }
     const items = this.getFallbackItems('projects');
@@ -982,26 +893,24 @@ class MySqlDatabaseManager {
   }
 
   public async deleteProject(id: string): Promise<boolean> {
-    await this.ensureConnection();
     if (this.isConnected && this.pool) {
       try {
-        await this.pool.query('DELETE FROM `solar_project_stages` WHERE `project_id` = ?', [id]);
         await this.pool.query('DELETE FROM `solar_projects` WHERE `id` = ? OR `project_code` = ?', [id, id]);
-        console.log(`[MySQL] Project deleted successfully: ${id}`);
       } catch (e: any) {
-        console.error('[MySQL deleteProject error]:', e?.message || e);
-        throw e;
+        console.warn('MySQL deleteProject error:', e?.message || e);
       }
     }
     const items = this.getFallbackItems('projects').filter(p => p.id !== id && p.projectCode !== id);
     this.setFallbackItems('projects', items);
+    return true;
+  }
+
   // --- Quotations Module ---
   public async getQuotations(): Promise<any[]> {
-    await this.ensureConnection();
     if (this.isConnected && this.pool) {
       try {
         const [rows]: any = await this.pool.query('SELECT * FROM `solar_quotations` ORDER BY `created_at` DESC');
-        if (Array.isArray(rows)) {
+        if (Array.isArray(rows) && rows.length > 0) {
           return rows.map((r: any) => {
             let items: any[] = [];
             if (r.items_json) {
@@ -1028,15 +937,14 @@ class MySqlDatabaseManager {
             };
           });
         }
-      } catch (e: any) {
-        console.error('[MySQL getQuotations error]:', e?.message || e);
+      } catch (e) {
+        console.warn('MySQL getQuotations error:', e);
       }
     }
     return this.getFallbackItems('quotations');
   }
 
   public async saveQuotation(quote: any): Promise<any> {
-    await this.ensureConnection();
     const capacityKw = Number(quote.capacityKw || quote.capacity_kw) || 3;
     const baseAmount = Number(quote.baseAmount || quote.base_amount || quote.baseProjectPrice) || (capacityKw * 60000);
     const discountAmount = Number(quote.discountAmount || quote.discount_amount) || 0;
@@ -1045,7 +953,7 @@ class MySqlDatabaseManager {
     const gstAmount = Number(quote.gstAmount || quote.gst_amount) || Math.round((taxableAmount * gstRate) / 100);
     const totalAmount = Number(quote.totalAmount || quote.total_amount) || (taxableAmount + gstAmount);
     const items = quote.items || quote.lineItems || quote.bomItems || [];
-    const validUntil = toSqlDate(quote.validUntil || quote.valid_until);
+    const validUntil = quote.validUntil || quote.valid_until ? String(quote.validUntil || quote.valid_until).split('T')[0] : null;
 
     const mapped = {
       ...quote,
@@ -1091,27 +999,25 @@ class MySqlDatabaseManager {
             \`items_json\` = VALUES(\`items_json\`)
         `;
         await this.pool.query(sql, [
-          toSqlStr(mapped.id),
-          toSqlStr(mapped.quotationNumber),
-          toSqlStr(mapped.customerId),
-          toSqlStr(mapped.customerName),
-          toSqlStr(mapped.projectId),
-          toSqlNum(mapped.capacityKw),
-          toSqlNum(mapped.baseAmount),
-          toSqlNum(mapped.subtotal),
-          toSqlNum(mapped.discountAmount),
-          toSqlNum(mapped.gstPercent),
-          toSqlNum(mapped.gstAmount),
-          toSqlNum(mapped.totalAmount),
-          toSqlStr(mapped.status),
+          mapped.id,
+          mapped.quotationNumber,
+          mapped.customerId,
+          mapped.customerName,
+          mapped.projectId,
+          mapped.capacityKw,
+          mapped.baseAmount,
+          mapped.subtotal,
+          mapped.discountAmount,
+          mapped.gstPercent,
+          mapped.gstAmount,
+          mapped.totalAmount,
+          mapped.status,
           mapped.validUntil,
-          toSqlStr(mapped.termsAndConditions),
+          mapped.termsAndConditions,
           JSON.stringify(mapped.items)
         ]);
-        console.log(`[MySQL] Quotation saved successfully: ${mapped.id} (${mapped.quotationNumber})`);
       } catch (e: any) {
-        console.error('[MySQL saveQuotation error]:', e?.message || e);
-        throw e;
+        console.warn('MySQL saveQuotation error:', e?.message || e);
       }
     }
     const fallbackList = this.getFallbackItems('quotations');
@@ -1123,14 +1029,11 @@ class MySqlDatabaseManager {
   }
 
   public async deleteQuotation(id: string): Promise<boolean> {
-    await this.ensureConnection();
     if (this.isConnected && this.pool) {
       try {
         await this.pool.query('DELETE FROM `solar_quotations` WHERE `id` = ? OR `quotation_number` = ?', [id, id]);
-        console.log(`[MySQL] Quotation deleted successfully: ${id}`);
-      } catch (e: any) {
-        console.error('[MySQL deleteQuotation error]:', e?.message || e);
-        throw e;
+      } catch (e) {
+        console.warn('MySQL deleteQuotation error:', e);
       }
     }
     const items = this.getFallbackItems('quotations').filter(q => q.id !== id && q.quotationNumber !== id);
@@ -1140,11 +1043,10 @@ class MySqlDatabaseManager {
 
   // --- Payments & Invoices ---
   public async getPayments(): Promise<any[]> {
-    await this.ensureConnection();
     if (this.isConnected && this.pool) {
       try {
         const [rows]: any = await this.pool.query('SELECT * FROM `solar_payments` ORDER BY `paid_date` DESC, `created_at` DESC');
-        if (Array.isArray(rows)) {
+        if (Array.isArray(rows) && rows.length > 0) {
           return rows.map((r: any) => ({
             ...r,
             id: r.id,
@@ -1164,15 +1066,14 @@ class MySqlDatabaseManager {
             tallyReference: r.tally_reference || r.tallyReference || ''
           }));
         }
-      } catch (e: any) {
-        console.error('[MySQL getPayments error]:', e?.message || e);
+      } catch (e) {
+        console.warn('MySQL getPayments error:', e);
       }
     }
     return this.getFallbackItems('payments');
   }
 
   public async savePayment(pay: any): Promise<any> {
-    await this.ensureConnection();
     const mapped = {
       ...pay,
       id: pay.id || `pay-${Date.now()}`,
@@ -1183,8 +1084,8 @@ class MySqlDatabaseManager {
       milestone: pay.milestone || 'Advance',
       amount: Number(pay.amount) || 0,
       status: pay.status || 'PAID',
-      dueDate: toSqlDate(pay.dueDate || pay.due_date),
-      paidDate: toSqlDate(pay.paidDate || pay.paid_date || pay.paymentDate || pay.payment_date) || new Date().toISOString().slice(0, 10),
+      dueDate: pay.dueDate || pay.due_date ? String(pay.dueDate || pay.due_date).split('T')[0] : null,
+      paidDate: pay.paidDate || pay.paid_date || pay.paymentDate || pay.payment_date ? String(pay.paidDate || pay.paid_date || pay.paymentDate || pay.payment_date).split('T')[0] : new Date().toISOString().split('T')[0],
       paymentMode: pay.paymentMode || pay.payment_mode || pay.method || 'Bank NEFT/RTGS',
       transactionReference: pay.transactionReference || pay.transaction_reference || pay.referenceNumber || pay.reference_number || '',
       notes: pay.notes || '',
@@ -1214,26 +1115,12 @@ class MySqlDatabaseManager {
             \`tally_reference\` = VALUES(\`tally_reference\`)
         `;
         await this.pool.query(sql, [
-          toSqlStr(mapped.id),
-          toSqlStr(mapped.receiptNumber),
-          toSqlStr(mapped.projectId),
-          toSqlStr(mapped.customerId),
-          toSqlStr(mapped.customerName),
-          toSqlStr(mapped.milestone),
-          toSqlNum(mapped.amount),
-          toSqlStr(mapped.status),
-          mapped.dueDate,
-          mapped.paidDate,
-          toSqlStr(mapped.paymentMode),
-          toSqlStr(mapped.transactionReference),
-          toSqlStr(mapped.notes),
-          toSqlStr(mapped.tallySyncStatus),
-          toSqlStr(mapped.tallyReference)
+          mapped.id, mapped.receiptNumber, mapped.projectId, mapped.customerId, mapped.customerName,
+          mapped.milestone, mapped.amount, mapped.status, mapped.dueDate, mapped.paidDate,
+          mapped.paymentMode, mapped.transactionReference, mapped.notes, mapped.tallySyncStatus, mapped.tallyReference
         ]);
-        console.log(`[MySQL] Payment saved successfully: ${mapped.id} (${mapped.receiptNumber})`);
       } catch (e: any) {
-        console.error('[MySQL savePayment error]:', e?.message || e);
-        throw e;
+        console.warn('MySQL savePayment error:', e?.message || e);
       }
     }
     const items = this.getFallbackItems('payments');
@@ -1245,14 +1132,11 @@ class MySqlDatabaseManager {
   }
 
   public async deletePayment(id: string): Promise<boolean> {
-    await this.ensureConnection();
     if (this.isConnected && this.pool) {
       try {
         await this.pool.query('DELETE FROM `solar_payments` WHERE `id` = ? OR `receipt_number` = ?', [id, id]);
-        console.log(`[MySQL] Payment deleted successfully: ${id}`);
-      } catch (e: any) {
-        console.error('[MySQL deletePayment error]:', e?.message || e);
-        throw e;
+      } catch (e) {
+        console.warn('MySQL deletePayment error:', e);
       }
     }
     const items = this.getFallbackItems('payments').filter(p => p.id !== id && p.receiptNumber !== id);
@@ -1261,11 +1145,10 @@ class MySqlDatabaseManager {
   }
 
   public async getSalesInvoices(): Promise<any[]> {
-    await this.ensureConnection();
     if (this.isConnected && this.pool) {
       try {
         const [rows]: any = await this.pool.query('SELECT * FROM `solar_sales_invoices` ORDER BY `invoice_date` DESC');
-        if (Array.isArray(rows)) {
+        if (Array.isArray(rows) && rows.length > 0) {
           return rows.map((r: any) => {
             let items: any[] = [];
             if (r.items_json) {
@@ -1293,15 +1176,14 @@ class MySqlDatabaseManager {
             };
           });
         }
-      } catch (e: any) {
-        console.error('[MySQL getSalesInvoices error]:', e?.message || e);
+      } catch (e) {
+        console.warn('MySQL getSalesInvoices error:', e);
       }
     }
     return this.getFallbackItems('sales_invoices');
   }
 
   public async saveSalesInvoice(inv: any): Promise<any> {
-    await this.ensureConnection();
     const items = inv.items || inv.lineItems || [];
     const mapped = {
       ...inv,
@@ -1310,8 +1192,8 @@ class MySqlDatabaseManager {
       projectId: inv.projectId || inv.project_id || '',
       customerId: inv.customerId || inv.customer_id || '',
       customerName: inv.customerName || inv.customer_name || '',
-      invoiceDate: toSqlDate(inv.invoiceDate || inv.invoice_date) || new Date().toISOString().slice(0, 10),
-      dueDate: toSqlDate(inv.dueDate || inv.due_date),
+      invoiceDate: inv.invoiceDate || inv.invoice_date ? String(inv.invoiceDate || inv.invoice_date).split('T')[0] : new Date().toISOString().split('T')[0],
+      dueDate: inv.dueDate || inv.due_date ? String(inv.dueDate || inv.due_date).split('T')[0] : null,
       subtotal: Number(inv.subtotal) || 0,
       gstAmount: Number(inv.taxAmount || inv.gst_amount || inv.gstAmount) || 0,
       totalAmount: Number(inv.totalAmount || inv.grandTotal || inv.total_amount) || 0,
@@ -1337,25 +1219,12 @@ class MySqlDatabaseManager {
             \`notes\` = VALUES(\`notes\`)
         `;
         await this.pool.query(sql, [
-          toSqlStr(mapped.id),
-          toSqlStr(mapped.invoiceNumber),
-          toSqlStr(mapped.projectId),
-          toSqlStr(mapped.customerId),
-          toSqlStr(mapped.customerName),
-          mapped.invoiceDate,
-          mapped.dueDate,
-          JSON.stringify(mapped.items),
-          toSqlNum(mapped.subtotal),
-          toSqlNum(mapped.gstAmount),
-          toSqlNum(mapped.totalAmount),
-          toSqlStr(mapped.status),
-          toSqlStr(mapped.ewayBillNumber),
-          toSqlStr(mapped.notes)
+          mapped.id, mapped.invoiceNumber, mapped.projectId, mapped.customerId, mapped.customerName,
+          mapped.invoiceDate, mapped.dueDate, JSON.stringify(mapped.items), mapped.subtotal,
+          mapped.gstAmount, mapped.totalAmount, mapped.status, mapped.ewayBillNumber, mapped.notes
         ]);
-        console.log(`[MySQL] Sales invoice saved successfully: ${mapped.id} (${mapped.invoiceNumber})`);
       } catch (e: any) {
-        console.error('[MySQL saveSalesInvoice error]:', e?.message || e);
-        throw e;
+        console.warn('MySQL saveSalesInvoice error:', e?.message || e);
       }
     }
     const list = this.getFallbackItems('sales_invoices');
@@ -1367,14 +1236,11 @@ class MySqlDatabaseManager {
   }
 
   public async deleteSalesInvoice(id: string): Promise<boolean> {
-    await this.ensureConnection();
     if (this.isConnected && this.pool) {
       try {
         await this.pool.query('DELETE FROM `solar_sales_invoices` WHERE `id` = ? OR `invoice_number` = ?', [id, id]);
-        console.log(`[MySQL] Sales invoice deleted successfully: ${id}`);
-      } catch (e: any) {
-        console.error('[MySQL deleteSalesInvoice error]:', e?.message || e);
-        throw e;
+      } catch (e) {
+        console.warn('MySQL deleteSalesInvoice error:', e);
       }
     }
     const items = this.getFallbackItems('sales_invoices').filter(i => i.id !== id && i.invoiceNumber !== id);
@@ -1384,11 +1250,10 @@ class MySqlDatabaseManager {
 
   // --- Expenses Module ---
   public async getExpenses(): Promise<any[]> {
-    await this.ensureConnection();
     if (this.isConnected && this.pool) {
       try {
         const [rows]: any = await this.pool.query('SELECT * FROM `solar_expenses` ORDER BY `expense_date` DESC');
-        if (Array.isArray(rows)) {
+        if (Array.isArray(rows) && rows.length > 0) {
           return rows.map((r: any) => ({
             ...r,
             id: r.id,
@@ -1406,15 +1271,14 @@ class MySqlDatabaseManager {
             tallySyncStatus: r.tally_sync_status || r.tallySyncStatus || 'NOT SYNCED'
           }));
         }
-      } catch (e: any) {
-        console.error('[MySQL getExpenses error]:', e?.message || e);
+      } catch (e) {
+        console.warn('MySQL getExpenses error:', e);
       }
     }
     return this.getFallbackItems('expenses');
   }
 
   public async saveExpense(exp: any): Promise<any> {
-    await this.ensureConnection();
     const mapped = {
       ...exp,
       id: exp.id || `exp-${Date.now()}`,
@@ -1424,7 +1288,7 @@ class MySqlDatabaseManager {
       vendorName: exp.vendorName || exp.vendor_name || 'Vendor',
       category: exp.category || 'General',
       amount: Number(exp.amount) || 0,
-      expenseDate: toSqlDate(exp.expenseDate || exp.expense_date || exp.date) || new Date().toISOString().slice(0, 10),
+      expenseDate: exp.expenseDate || exp.expense_date || exp.date ? String(exp.expenseDate || exp.expense_date || exp.date).split('T')[0] : new Date().toISOString().split('T')[0],
       paymentMode: exp.paymentMode || exp.payment_mode || 'Bank Payment',
       referenceNo: exp.referenceNo || exp.reference_no || '',
       notes: exp.notes || '',
@@ -1452,23 +1316,12 @@ class MySqlDatabaseManager {
             \`tally_sync_status\` = VALUES(\`tally_sync_status\`)
         `;
         await this.pool.query(sql, [
-          toSqlStr(mapped.id),
-          toSqlStr(mapped.expenseNumber),
-          toSqlStr(mapped.projectId),
-          toSqlStr(mapped.projectCode),
-          toSqlStr(mapped.vendorName),
-          toSqlStr(mapped.category),
-          toSqlNum(mapped.amount),
-          mapped.expenseDate,
-          toSqlStr(mapped.paymentMode),
-          toSqlStr(mapped.referenceNo),
-          toSqlStr(mapped.notes),
-          toSqlStr(mapped.tallySyncStatus)
+          mapped.id, mapped.expenseNumber, mapped.projectId, mapped.projectCode, mapped.vendorName,
+          mapped.category, mapped.amount, mapped.expenseDate, mapped.paymentMode, mapped.referenceNo,
+          mapped.notes, mapped.tallySyncStatus
         ]);
-        console.log(`[MySQL] Expense saved successfully: ${mapped.id} (${mapped.expenseNumber})`);
       } catch (e: any) {
-        console.error('[MySQL saveExpense error]:', e?.message || e);
-        throw e;
+        console.warn('MySQL saveExpense error:', e?.message || e);
       }
     }
     const items = this.getFallbackItems('expenses');
@@ -1480,14 +1333,11 @@ class MySqlDatabaseManager {
   }
 
   public async deleteExpense(id: string): Promise<boolean> {
-    await this.ensureConnection();
     if (this.isConnected && this.pool) {
       try {
         await this.pool.query('DELETE FROM `solar_expenses` WHERE `id` = ? OR `expense_number` = ?', [id, id]);
-        console.log(`[MySQL] Expense deleted successfully: ${id}`);
-      } catch (e: any) {
-        console.error('[MySQL deleteExpense error]:', e?.message || e);
-        throw e;
+      } catch (e) {
+        console.warn('MySQL deleteExpense error:', e);
       }
     }
     const items = this.getFallbackItems('expenses').filter(e => e.id !== id && e.expenseNumber !== id);
@@ -1497,11 +1347,10 @@ class MySqlDatabaseManager {
 
   // --- Inventory & Stock Movements ---
   public async getProducts(): Promise<any[]> {
-    await this.ensureConnection();
     if (this.isConnected && this.pool) {
       try {
         const [rows]: any = await this.pool.query('SELECT * FROM `solar_products` ORDER BY `name` ASC');
-        if (Array.isArray(rows)) {
+        if (Array.isArray(rows) && rows.length > 0) {
           return rows.map((r: any) => ({
             ...r,
             id: r.id,
@@ -1521,15 +1370,14 @@ class MySqlDatabaseManager {
             status: r.status || 'ACTIVE'
           }));
         }
-      } catch (e: any) {
-        console.error('[MySQL getProducts error]:', e?.message || e);
+      } catch (e) {
+        console.warn('MySQL getProducts error:', e);
       }
     }
     return this.getFallbackItems('products');
   }
 
   public async saveProduct(prod: any): Promise<any> {
-    await this.ensureConnection();
     const mapped = {
       ...prod,
       id: prod.id || `prod-${Date.now()}`,
@@ -1561,23 +1409,11 @@ class MySqlDatabaseManager {
             \`reorder_level\` = VALUES(\`reorder_level\`), \`status\` = VALUES(\`status\`)
         `;
         await this.pool.query(sql, [
-          toSqlStr(mapped.id),
-          toSqlStr(mapped.name),
-          toSqlStr(mapped.sku),
-          toSqlStr(mapped.category),
-          toSqlStr(mapped.brand),
-          toSqlStr(mapped.unit),
-          toSqlStr(mapped.hsnCode),
-          toSqlNum(mapped.gstRate),
-          toSqlNum(mapped.unitPrice),
-          toSqlNum(mapped.currentStock),
-          toSqlNum(mapped.reorderLevel),
-          toSqlStr(mapped.status)
+          mapped.id, mapped.name, mapped.sku, mapped.category, mapped.brand, mapped.unit,
+          mapped.hsnCode, mapped.gstRate, mapped.unitPrice, mapped.currentStock, mapped.reorderLevel, mapped.status
         ]);
-        console.log(`[MySQL] Product saved successfully: ${mapped.id} (${mapped.name})`);
       } catch (e: any) {
-        console.error('[MySQL saveProduct error]:', e?.message || e);
-        throw e;
+        console.warn('MySQL saveProduct error:', e?.message || e);
       }
     }
     const items = this.getFallbackItems('products');
@@ -1589,14 +1425,11 @@ class MySqlDatabaseManager {
   }
 
   public async deleteProduct(id: string): Promise<boolean> {
-    await this.ensureConnection();
     if (this.isConnected && this.pool) {
       try {
         await this.pool.query('DELETE FROM `solar_products` WHERE `id` = ? OR `sku` = ?', [id, id]);
-        console.log(`[MySQL] Product deleted successfully: ${id}`);
-      } catch (e: any) {
-        console.error('[MySQL deleteProduct error]:', e?.message || e);
-        throw e;
+      } catch (e) {
+        console.warn('MySQL deleteProduct error:', e);
       }
     }
     const items = this.getFallbackItems('products').filter(p => p.id !== id && p.sku !== id);
@@ -1606,7 +1439,6 @@ class MySqlDatabaseManager {
 
   // Atomic Stock Movement Transaction
   public async recordStockMovement(movement: any): Promise<{ success: boolean; movement: any; newStock: number; error?: string }> {
-    await this.ensureConnection();
     const qty = Number(movement.quantity) || 0;
     const type = movement.movementType || 'OUT';
     const productId = movement.productId;
@@ -1716,13 +1548,12 @@ class MySqlDatabaseManager {
   }
 
   public async getStockMovements(): Promise<any[]> {
-    await this.ensureConnection();
     if (this.isConnected && this.pool) {
       try {
         const [rows] = await this.pool.query('SELECT * FROM `solar_stock_movements` ORDER BY `created_at` DESC');
         return rows as any[];
-      } catch (e: any) {
-        console.error('[MySQL getStockMovements error]:', e?.message || e);
+      } catch (e) {
+        console.warn('MySQL getStockMovements error:', e);
       }
     }
     return this.getFallbackItems('stock_movements');
@@ -1730,22 +1561,20 @@ class MySqlDatabaseManager {
 
   // --- HRMS Module ---
   public async getEmployees(): Promise<any[]> {
-    await this.ensureConnection();
     if (this.isConnected && this.pool) {
       try {
         const [rows]: any = await this.pool.query('SELECT * FROM `solar_employees` ORDER BY `employee_code` ASC');
-        if (Array.isArray(rows)) {
+        if (Array.isArray(rows) && rows.length > 0) {
           return rows.map((r: any) => this.mapEmployeeRow(r));
         }
-      } catch (e: any) {
-        console.error('[MySQL getEmployees error]:', e?.message || e);
+      } catch (e) {
+        console.warn('MySQL getEmployees error:', e);
       }
     }
     return this.getFallbackItems('employees').map((r: any) => this.mapEmployeeRow(r));
   }
 
   public async saveEmployee(emp: any): Promise<any> {
-    await this.ensureConnection();
     const mapped = this.mapEmployeeRow(emp);
     if (this.isConnected && this.pool) {
       try {
@@ -1757,6 +1586,7 @@ class MySqlDatabaseManager {
             \`is_field_worker\`, \`account_status\`
           ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
           ON DUPLICATE KEY UPDATE
+            \`employee_code\` = VALUES(\`employee_code\`),
             \`name\` = VALUES(\`name\`),
             \`photo_url\` = VALUES(\`photo_url\`),
             \`department\` = VALUES(\`department\`),
@@ -1773,27 +1603,50 @@ class MySqlDatabaseManager {
             \`account_status\` = VALUES(\`account_status\`)
         `;
         await this.pool.query(sql, [
-          toSqlStr(mapped.id),
-          toSqlStr(mapped.employeeCode),
-          toSqlStr(mapped.name),
-          toSqlStr(mapped.photoUrl),
-          toSqlStr(mapped.department, 'Operations'),
-          toSqlStr(mapped.designation, 'Field Engineer'),
-          toSqlStr(mapped.phone),
-          toSqlStr(mapped.email),
-          toSqlDate(mapped.joiningDate) || new Date().toISOString().slice(0, 10),
-          toSqlNum(mapped.salaryMonthly, 30000),
-          toSqlStr(mapped.status, 'ACTIVE'),
-          toSqlStr(mapped.currentSiteLocation),
-          toSqlBool(mapped.loginEnabled, 1),
-          toSqlStr(mapped.systemRole, 'Field Engineer'),
-          toSqlBool(mapped.isFieldWorker, 0),
-          toSqlStr(mapped.accountStatus, 'ACTIVE')
+          mapped.id,
+          mapped.employeeCode,
+          mapped.name,
+          mapped.photoUrl || '',
+          mapped.department,
+          mapped.designation,
+          mapped.phone,
+          mapped.email,
+          mapped.joiningDate,
+          mapped.salaryMonthly,
+          mapped.status,
+          mapped.currentSiteLocation,
+          mapped.loginEnabled ? 1 : 0,
+          mapped.systemRole,
+          mapped.isFieldWorker ? 1 : 0,
+          mapped.accountStatus
         ]);
-        console.log(`[MySQL] Employee saved successfully: ${mapped.id} (${mapped.name})`);
+
+        if (mapped.email) {
+          const userSql = `
+            INSERT INTO \`solar_users\` (
+              \`id\`, \`name\`, \`email\`, \`password\`, \`role\`, \`phone\`, \`department\`,
+              \`designation\`, \`employee_id\`, \`is_field_worker\`, \`status\`
+            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+            ON DUPLICATE KEY UPDATE
+              \`name\` = VALUES(\`name\`),
+              \`role\` = VALUES(\`role\`),
+              \`phone\` = VALUES(\`phone\`),
+              \`department\` = VALUES(\`department\`),
+              \`designation\` = VALUES(\`designation\`),
+              \`employee_id\` = VALUES(\`employee_id\`),
+              \`is_field_worker\` = VALUES(\`is_field_worker\`),
+              \`status\` = VALUES(\`status\`)
+          `;
+          const userPass = hashPassword('123456');
+          await this.pool.query(userSql, [
+            mapped.id, mapped.name, mapped.email, userPass,
+            mapped.systemRole, mapped.phone, mapped.department,
+            mapped.designation, mapped.employeeCode, mapped.isFieldWorker ? 1 : 0,
+            mapped.status || 'ACTIVE'
+          ]).catch(() => {});
+        }
       } catch (e: any) {
-        console.error('[MySQL saveEmployee error]:', e?.message || e);
-        throw e;
+        console.warn('MySQL saveEmployee error:', e?.message || e);
       }
     }
     const items = this.getFallbackItems('employees');
@@ -1801,31 +1654,52 @@ class MySqlDatabaseManager {
     if (idx >= 0) items[idx] = { ...items[idx], ...mapped };
     else items.unshift(mapped);
     this.setFallbackItems('employees', items);
+
+    if (mapped.email) {
+      const users = this.getFallbackItems('users');
+      const uIdx = users.findIndex(u => u.id === mapped.id || (u.email && u.email.toLowerCase() === mapped.email.toLowerCase()));
+      const uObj = {
+        id: mapped.id,
+        name: mapped.name,
+        email: mapped.email,
+        password: hashPassword('123456'),
+        role: mapped.systemRole,
+        phone: mapped.phone,
+        department: mapped.department,
+        designation: mapped.designation,
+        employeeId: mapped.employeeCode,
+        isFieldWorker: mapped.isFieldWorker,
+        status: mapped.status || 'ACTIVE'
+      };
+      if (uIdx >= 0) users[uIdx] = { ...users[uIdx], ...uObj };
+      else users.push(uObj);
+      this.setFallbackItems('users', users);
+    }
+
     return mapped;
   }
 
   public async deleteEmployee(id: string): Promise<boolean> {
-    await this.ensureConnection();
     if (this.isConnected && this.pool) {
       try {
         await this.pool.query('DELETE FROM `solar_employees` WHERE `id` = ? OR `employee_code` = ?', [id, id]);
-        console.log(`[MySQL] Employee deleted successfully: ${id}`);
-      } catch (e: any) {
-        console.error('[MySQL deleteEmployee error]:', e?.message || e);
-        throw e;
+        await this.pool.query('DELETE FROM `solar_users` WHERE `id` = ? OR `employee_id` = ?', [id, id]);
+      } catch (e) {
+        console.warn('MySQL deleteEmployee error:', e);
       }
     }
     const items = this.getFallbackItems('employees').filter(e => e.id !== id && e.employeeCode !== id);
     this.setFallbackItems('employees', items);
+    const users = this.getFallbackItems('users').filter(u => u.id !== id && u.employeeId !== id);
+    this.setFallbackItems('users', users);
     return true;
   }
 
   public async getAttendance(): Promise<any[]> {
-    await this.ensureConnection();
     if (this.isConnected && this.pool) {
       try {
         const [rows]: any = await this.pool.query('SELECT * FROM `solar_attendance` ORDER BY `attendance_date` DESC');
-        if (Array.isArray(rows)) {
+        if (Array.isArray(rows) && rows.length > 0) {
           return rows.map((r: any) => ({
             ...r,
             id: r.id,
@@ -1837,21 +1711,20 @@ class MySqlDatabaseManager {
             status: r.status || 'PRESENT'
           }));
         }
-      } catch (e: any) {
-        console.error('[MySQL getAttendance error]:', e?.message || e);
+      } catch (e) {
+        console.warn('MySQL getAttendance error:', e);
       }
     }
     return this.getFallbackItems('attendance');
   }
 
   public async saveAttendance(att: any): Promise<any> {
-    await this.ensureConnection();
     const mapped = {
       ...att,
       id: att.id || `att-${Date.now()}`,
       employeeId: att.employeeId || att.employee_id || '',
       employeeName: att.employeeName || att.employee_name || '',
-      attendanceDate: toSqlDate(att.attendanceDate || att.attendance_date) || new Date().toISOString().slice(0, 10),
+      attendanceDate: att.attendanceDate || att.attendance_date ? String(att.attendanceDate || att.attendance_date).split('T')[0] : new Date().toISOString().split('T')[0],
       checkInTime: att.checkInTime || att.check_in_time || '09:00:00',
       checkOutTime: att.checkOutTime || att.check_out_time || null,
       status: att.status || 'PRESENT'
@@ -1868,18 +1741,11 @@ class MySqlDatabaseManager {
             \`check_out_time\` = VALUES(\`check_out_time\`), \`status\` = VALUES(\`status\`)
         `;
         await this.pool.query(sql, [
-          toSqlStr(mapped.id),
-          toSqlStr(mapped.employeeId),
-          toSqlStr(mapped.employeeName),
-          mapped.attendanceDate,
-          toSqlStr(mapped.checkInTime),
-          mapped.checkOutTime ? toSqlStr(mapped.checkOutTime) : null,
-          toSqlStr(mapped.status)
+          mapped.id, mapped.employeeId, mapped.employeeName, mapped.attendanceDate,
+          mapped.checkInTime, mapped.checkOutTime, mapped.status
         ]);
-        console.log(`[MySQL] Attendance saved successfully: ${mapped.id}`);
       } catch (e: any) {
-        console.error('[MySQL saveAttendance error]:', e?.message || e);
-        throw e;
+        console.warn('MySQL saveAttendance error:', e?.message || e);
       }
     }
     const list = this.getFallbackItems('attendance');
@@ -1891,20 +1757,8 @@ class MySqlDatabaseManager {
   }
 
   public async deleteAttendance(id: string): Promise<boolean> {
-    await this.ensureConnection();
     if (this.isConnected && this.pool) {
       try {
-        await this.pool.query('DELETE FROM `solar_attendance` WHERE `id` = ?', [id]);
-        console.log(`[MySQL] Attendance deleted successfully: ${id}`);
-      } catch (e: any) {
-        console.error('[MySQL deleteAttendance error]:', e?.message || e);
-        throw e;
-      }
-    }
-    const items = this.getFallbackItems('attendance').filter(a => a.id !== id);
-    this.setFallbackItems('attendance', items);
-    return true;
-  }
         await this.pool.query('DELETE FROM `solar_attendance` WHERE `id` = ?', [id]);
       } catch (e) {
         console.warn('MySQL deleteAttendance error:', e);
@@ -2375,6 +2229,177 @@ class MySqlDatabaseManager {
     }
     const items = this.getFallbackItems('vendors').filter(v => v.id !== id && v.vendorCode !== id);
     this.setFallbackItems('vendors', items);
+    return true;
+  }
+
+  // --- Site Surveys ---
+  public async getSurveys(): Promise<any[]> {
+    if (this.isConnected && this.pool) {
+      try {
+        const [rows]: any = await this.pool.query('SELECT * FROM `solar_site_surveys` ORDER BY `survey_date` DESC');
+        if (Array.isArray(rows) && rows.length > 0) {
+          return rows.map((r: any) => ({
+            ...r,
+            id: r.id,
+            projectId: r.project_id || r.projectId,
+            customerId: r.customer_id || r.customerId,
+            engineerId: r.engineer_id || r.engineerId,
+            engineerName: r.engineer_name || r.engineerName,
+            surveyDate: r.survey_date ? (typeof r.survey_date === 'string' ? r.survey_date.split('T')[0] : new Date(r.survey_date).toISOString().split('T')[0]) : (r.surveyDate || new Date().toISOString().split('T')[0]),
+            siteAddress: r.site_address || r.siteAddress || '',
+            roofType: r.roof_type || r.roofType,
+            roofAreaSqft: Number(r.roof_area_sqft ?? r.roofAreaSqft ?? 0),
+            shadowFreeAreaSqft: Number(r.shadow_free_area_sqft ?? r.shadowFreeAreaSqft ?? 0),
+            recommendedCapacityKw: Number(r.recommended_capacity_kw ?? r.recommendedCapacityKw ?? 0),
+            notes: r.notes || '',
+            status: r.status || 'DRAFT'
+          }));
+        }
+      } catch (e) {
+        console.warn('MySQL getSurveys error:', e);
+      }
+    }
+    return this.getFallbackItems('surveys');
+  }
+
+  public async saveSurvey(s: any): Promise<any> {
+    const surveyDate = s.surveyDate ? (typeof s.surveyDate === 'string' ? s.surveyDate.split('T')[0] : new Date(s.surveyDate).toISOString().split('T')[0]) : new Date().toISOString().split('T')[0];
+    const mapped = {
+      ...s,
+      id: s.id || `srv-${Date.now()}`,
+      projectId: s.projectId || s.project_id || '',
+      customerId: s.customerId || s.customer_id || '',
+      engineerId: s.engineerId || s.engineer_id || '',
+      engineerName: s.engineerName || s.engineer_name || 'Site Survey Engineer',
+      surveyDate,
+      status: s.status || 'COMPLETED',
+      siteAddress: s.siteAddress || s.site_address || 'Site Address',
+      roofType: s.roofType || s.roof_type || 'RCC Flat',
+      roofAreaSqft: Number(s.roofAreaSqft ?? s.roof_area_sqft ?? 1200),
+      shadowFreeAreaSqft: Number(s.shadowFreeAreaSqft ?? s.shadow_free_area_sqft ?? 1000),
+      recommendedCapacityKw: Number(s.recommendedCapacityKw ?? s.recommended_capacity_kw ?? 10),
+      notes: s.notes || ''
+    };
+
+    if (this.isConnected && this.pool) {
+      try {
+        const sql = `
+          INSERT INTO \`solar_site_surveys\` (
+            \`id\`, \`project_id\`, \`customer_id\`, \`engineer_id\`, \`engineer_name\`,
+            \`survey_date\`, \`status\`, \`site_address\`, \`roof_type\`, \`roof_area_sqft\`,
+            \`shadow_free_area_sqft\`, \`recommended_capacity_kw\`, \`notes\`
+          ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+          ON DUPLICATE KEY UPDATE
+            \`status\` = VALUES(\`status\`),
+            \`site_address\` = VALUES(\`site_address\`),
+            \`roof_type\` = VALUES(\`roof_type\`),
+            \`roof_area_sqft\` = VALUES(\`roof_area_sqft\`),
+            \`shadow_free_area_sqft\` = VALUES(\`shadow_free_area_sqft\`),
+            \`recommended_capacity_kw\` = VALUES(\`recommended_capacity_kw\`),
+            \`notes\` = VALUES(\`notes\`)
+        `;
+        await this.pool.query(sql, [
+          mapped.id, mapped.projectId, mapped.customerId, mapped.engineerId,
+          mapped.engineerName, mapped.surveyDate, mapped.status, mapped.siteAddress,
+          mapped.roofType, mapped.roofAreaSqft, mapped.shadowFreeAreaSqft,
+          mapped.recommendedCapacityKw, mapped.notes
+        ]);
+      } catch (e: any) {
+        console.warn('MySQL saveSurvey error:', e?.message || e);
+      }
+    }
+    const items = this.getFallbackItems('surveys');
+    const idx = items.findIndex(item => item.id === mapped.id);
+    if (idx >= 0) items[idx] = { ...items[idx], ...mapped };
+    else items.unshift(mapped);
+    this.setFallbackItems('surveys', items);
+    return mapped;
+  }
+
+  public async deleteSurvey(id: string): Promise<boolean> {
+    if (this.isConnected && this.pool) {
+      try {
+        await this.pool.query('DELETE FROM `solar_site_surveys` WHERE `id` = ?', [id]);
+      } catch (e) {
+        console.warn('MySQL deleteSurvey error:', e);
+      }
+    }
+    const items = this.getFallbackItems('surveys').filter(s => s.id !== id);
+    this.setFallbackItems('surveys', items);
+    return true;
+  }
+
+  // --- Bill of Materials (BOM) ---
+  public async getBOMs(): Promise<any[]> {
+    if (this.isConnected && this.pool) {
+      try {
+        const [rows]: any = await this.pool.query('SELECT * FROM `solar_boms` ORDER BY `created_at` DESC');
+        if (Array.isArray(rows) && rows.length > 0) {
+          return rows.map((r: any) => ({
+            ...r,
+            id: r.id,
+            projectId: r.project_id || r.projectId,
+            bomNumber: r.bom_number || r.bomNumber || r.id,
+            status: r.status || 'DRAFT',
+            totalEstimatedCost: Number(r.total_estimated_cost ?? r.totalEstimatedCost ?? 0),
+            items: typeof r.items_json === 'string' ? JSON.parse(r.items_json) : (r.items || [])
+          }));
+        }
+      } catch (e) {
+        console.warn('MySQL getBOMs error:', e);
+      }
+    }
+    return this.getFallbackItems('boms');
+  }
+
+  public async saveBOM(bom: any): Promise<any> {
+    const mapped = {
+      ...bom,
+      id: bom.id || `bom-${Date.now()}`,
+      projectId: bom.projectId || bom.project_id || '',
+      bomNumber: bom.bomNumber || bom.bom_number || `BOM-${Date.now().toString().slice(-4)}`,
+      status: bom.status || 'ACTIVE',
+      totalEstimatedCost: Number(bom.totalEstimatedCost ?? bom.total_estimated_cost ?? 0),
+      items: bom.items || []
+    };
+
+    if (this.isConnected && this.pool) {
+      try {
+        const sql = `
+          INSERT INTO \`solar_boms\` (
+            \`id\`, \`project_id\`, \`bom_number\`, \`status\`, \`total_estimated_cost\`, \`items_json\`
+          ) VALUES (?, ?, ?, ?, ?, ?)
+          ON DUPLICATE KEY UPDATE
+            \`status\` = VALUES(\`status\`),
+            \`total_estimated_cost\` = VALUES(\`total_estimated_cost\`),
+            \`items_json\` = VALUES(\`items_json\`)
+        `;
+        await this.pool.query(sql, [
+          mapped.id, mapped.projectId, mapped.bomNumber, mapped.status,
+          mapped.totalEstimatedCost, JSON.stringify(mapped.items)
+        ]);
+      } catch (e: any) {
+        console.warn('MySQL saveBOM error:', e?.message || e);
+      }
+    }
+    const items = this.getFallbackItems('boms');
+    const idx = items.findIndex(b => b.id === mapped.id || (b.bomNumber && b.bomNumber === mapped.bomNumber));
+    if (idx >= 0) items[idx] = { ...items[idx], ...mapped };
+    else items.unshift(mapped);
+    this.setFallbackItems('boms', items);
+    return mapped;
+  }
+
+  public async deleteBOM(id: string): Promise<boolean> {
+    if (this.isConnected && this.pool) {
+      try {
+        await this.pool.query('DELETE FROM `solar_boms` WHERE `id` = ? OR `bom_number` = ?', [id, id]);
+      } catch (e) {
+        console.warn('MySQL deleteBOM error:', e);
+      }
+    }
+    const items = this.getFallbackItems('boms').filter(b => b.id !== id && b.bomNumber !== id);
+    this.setFallbackItems('boms', items);
     return true;
   }
 

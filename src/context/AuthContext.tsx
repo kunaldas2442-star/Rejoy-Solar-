@@ -228,6 +228,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       console.warn('Could not restore auth session:', e);
     } finally {
       setLoading(false);
+      storageService.syncFromBackend().catch(() => {});
     }
   }, []);
 

@@ -626,17 +626,39 @@ apiRouter.get('/warehouses', (_req: Request, res: Response) => {
 });
 
 // Bill of Materials (BOM)
-apiRouter.get('/boms', (_req: Request, res: Response) => {
-  const items = dbManager.getFallbackItems('boms');
+apiRouter.get('/boms', async (_req: Request, res: Response) => {
+  const items = await dbManager.getBOMs();
   res.json({ success: true, count: items.length, data: items });
 });
 
-apiRouter.post('/boms', optionalAuthenticate, (req: Request, res: Response) => {
-  const items = dbManager.getFallbackItems('boms');
-  const bom = { ...req.body, id: req.body.id || `bom-${Date.now()}` };
-  items.unshift(bom);
-  dbManager.setFallbackItems('boms', items);
-  res.status(201).json({ success: true, data: bom });
+apiRouter.post('/boms', optionalAuthenticate, async (req: Request, res: Response) => {
+  const payload = sanitizeObject(req.body);
+  const saved = await dbManager.saveBOM(payload);
+  res.status(201).json({ success: true, data: saved });
+});
+
+apiRouter.delete('/boms/:id', optionalAuthenticate, async (req: Request, res: Response) => {
+  const { id } = req.params;
+  await dbManager.deleteBOM(id);
+  res.json({ success: true, message: 'BOM deleted.' });
+});
+
+// Site Surveys
+apiRouter.get('/surveys', async (_req: Request, res: Response) => {
+  const items = await dbManager.getSurveys();
+  res.json({ success: true, count: items.length, data: items });
+});
+
+apiRouter.post('/surveys', optionalAuthenticate, async (req: Request, res: Response) => {
+  const payload = sanitizeObject(req.body);
+  const saved = await dbManager.saveSurvey(payload);
+  res.status(201).json({ success: true, data: saved });
+});
+
+apiRouter.delete('/surveys/:id', optionalAuthenticate, async (req: Request, res: Response) => {
+  const { id } = req.params;
+  await dbManager.deleteSurvey(id);
+  res.json({ success: true, message: 'Survey deleted.' });
 });
 
 // ==========================================================
